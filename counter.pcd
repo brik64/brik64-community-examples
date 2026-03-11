@@ -1,0 +1,22 @@
+// counter.pcd
+// Suma acumulada usando loop(N) — demuestra operadores directos en PCD
+//
+// Uso:
+//   brikc run counter.pcd
+// Salida: I64(15) = 1+2+3+4+5
+
+PC counter {
+    let limit = 5;
+    let sum = 0;
+
+    loop(10) as i {
+        if (i < limit) {
+            let step = (i + 1);
+            let sum = (sum + step);
+            OUTPUT step;
+        }
+    }
+
+    OUTPUT sum;
+    return sum;
+}

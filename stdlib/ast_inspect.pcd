@@ -1,0 +1,63 @@
+// AST Inspection utilities for policy circuits
+// Operates on arrays of monomer IDs extracted from a program's plan
+
+PC ast_inspect {
+
+    fn contains_monomer(mc_ids, target_id) {
+        let n = mc_ids.len();
+        loop(n) as i {
+            if (mc_ids[i] == target_id) { return 1; }
+        }
+        return 0;
+    }
+
+    fn contains_any_in_range(mc_ids, lo, hi) {
+        let n = mc_ids.len();
+        loop(n) as i {
+            let id = mc_ids[i];
+            if (id >= lo) {
+                if (id <= hi) { return 1; }
+            }
+        }
+        return 0;
+    }
+
+    fn count_monomer(mc_ids, target_id) {
+        let count = 0;
+        let n = mc_ids.len();
+        loop(n) as i {
+            if (mc_ids[i] == target_id) {
+                let count = count + 1;
+            }
+        }
+        return count;
+    }
+
+    fn count_in_range(mc_ids, lo, hi) {
+        let count = 0;
+        let n = mc_ids.len();
+        loop(n) as i {
+            let id = mc_ids[i];
+            if (id >= lo) {
+                if (id <= hi) {
+                    let count = count + 1;
+                }
+            }
+        }
+        return count;
+    }
+
+    fn count_io_ops(mc_ids) {
+        return count_in_range(mc_ids, 32, 39);
+    }
+
+    fn count_crypto_ops(mc_ids) {
+        return count_in_range(mc_ids, 48, 55);
+    }
+
+    fn count_system_ops(mc_ids) {
+        return count_in_range(mc_ids, 56, 63);
+    }
+
+    OUTPUT 0;
+}

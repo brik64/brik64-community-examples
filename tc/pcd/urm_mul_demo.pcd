@@ -1,0 +1,111 @@
+PC tc_urm_mul_demo {
+  fn array_concat(a, b) {
+    let out = [];
+    let an = a.len();
+    loop(an) as i { let out = out.push(a[i]); }
+    let bn = b.len();
+    loop(bn) as j { let out = out.push(b[j]); }
+    return out;
+  }
+
+  fn array_set(a, idx, value) {
+    let left = [];
+    let n = a.len();
+    loop(n) as i {
+      if (i < idx) { let left = left.push(a[i]); }
+    }
+    let right = [];
+    loop(n) as i {
+      if (i > idx) { let right = right.push(a[i]); }
+    }
+    return array_concat(array_concat(left, [value]), right);
+  }
+
+  fn reg_get(regs, idx) {
+    if (idx >= regs.len()) { return 0; }
+    return regs[idx];
+  }
+
+  fn reg_set(regs, idx, value) {
+    let out = regs;
+    if (idx >= out.len()) {
+      let need = ((idx - out.len()) + 1);
+      loop(need) as _k { let out = out.push(0); }
+    }
+    return array_set(out, idx, value);
+  }
+
+  fn run_urm(prog, regs, step_budget) {
+    let pc = 1;
+    let halted = 0;
+
+    loop(step_budget) as _step {
+      if (halted == 1) { break; }
+      let n = prog.len();
+      if (pc > n) { let halted = 1; break; }
+
+      let inst = prog[(pc - 1)];
+      let op = inst[0];
+      let i = inst[1];
+      let j = inst[2];
+      let k = inst[3];
+
+      if (op == 0) {
+        let regs = reg_set(regs, i, 0);
+        let pc = (pc + 1);
+      }
+
+      if (op == 1) {
+        let regs = reg_set(regs, i, (reg_get(regs, i) + 1));
+        let pc = (pc + 1);
+      }
+
+      if (op == 2) {
+        let regs = reg_set(regs, j, reg_get(regs, i));
+        let pc = (pc + 1);
+      }
+
+      if (op == 3) {
+        if (reg_get(regs, i) == reg_get(regs, j)) {
+          let pc = k;
+        } else {
+          let pc = (pc + 1);
+        }
+      }
+    }
+
+    return regs;
+  }
+
+  fn urm_mul(a, b) {
+    // 1: Z(0)
+    // 2: Z(3)
+    // 3: J(3,2,11)
+    // 4: Z(4)
+    // 5: J(4,1,9)
+    // 6: S(0)
+    // 7: S(4)
+    // 8: J(4,4,5)
+    // 9: S(3)
+    // 10: J(3,3,3)
+    let prog = [];
+    let prog = prog.push([0, 0, 0, 0]);
+    let prog = prog.push([0, 3, 0, 0]);
+    let prog = prog.push([3, 3, 2, 11]);
+    let prog = prog.push([0, 4, 0, 0]);
+    let prog = prog.push([3, 4, 1, 9]);
+    let prog = prog.push([1, 0, 0, 0]);
+    let prog = prog.push([1, 4, 0, 0]);
+    let prog = prog.push([3, 4, 4, 5]);
+    let prog = prog.push([1, 3, 0, 0]);
+    let prog = prog.push([3, 3, 3, 3]);
+
+    let regs = [];
+    let regs = reg_set(regs, 1, a);
+    let regs = reg_set(regs, 2, b);
+    let regs = run_urm(prog, regs, 200000);
+    return reg_get(regs, 0);
+  }
+
+  OUTPUT urm_mul(4, 3);
+}

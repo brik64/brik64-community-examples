@@ -1,0 +1,634 @@
+PC brikc_parser {
+    // Recursive descent parser for bootstrap brikc lexer tokens.
+    // Input token stream format: flat quads [kind, value, line, col, ...].
+    // Output AST format (nested arrays):
+    //   ["PC", name, [statements]]
+    //   ["fn", name, [params], [body]]
+    //   ["let", name, expr]
+    //   ["if", condition, [then], [else]]
+    //   ["loop", count_expr, [body]]
+    //   ["return", expr]
+    //   ["call", name, [args]]
+    //   ["monomer", "MC_XX.OP", [args]]
+    //   ["binop", op, left, right]
+    //   ["num", value]
+    //   ["str", value]
+    //   ["ident", name]
+
+    fn tok_off(idx) {
+        return MC_02.MUL8(idx, 4);
+    }
+
+    fn tok_kind(tokens, idx) {
+        return tokens[tok_off(idx)];
+    }
+
+    fn tok_val(tokens, idx) {
+        return tokens[MC_00.ADD8(tok_off(idx), 1)];
+    }
+
+    fn tok_count(tokens) {
+        let d = MC_03.DIV8(tokens.len(), 4);
+        return d[0];
+    }
+
+    fn is_tok(tokens, pos, kind, value) {
+        if (pos < tok_count(tokens)) {
+            if (tok_kind(tokens, pos) == kind) {
+                if (tok_val(tokens, pos) == value) {
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+
+    fn consume_if(tokens, pos, kind, value) {
+        if (is_tok(tokens, pos, kind, value) == 1) {
+            return MC_00.ADD8(pos, 1);
+        }
+        return pos;
+    }
+
+    fn consume_semicolon(tokens, pos) {
+        return consume_if(tokens, pos, "SEMICOLON", ";");
+    }
+
+    fn is_monomer_name(name) {
+        if (MC_43.LEN(name) < 4) {
+            return 0;
+        }
+        if (MC_42.SUBSTR(name, 0, 3) == "MC_") {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn parse_program(tokens) {
+        let pos = 0;
+
+        // PC
+        let pos = consume_if(tokens, pos, "KEYWORD", "PC");
+
+        // name
+        let name = "";
+        if (pos < tok_count(tokens)) {
+            if (tok_kind(tokens, pos) == "IDENT") {
+                let name = tok_val(tokens, pos);
+                let pos = MC_00.ADD8(pos, 1);
+            }
+        }
+
+        // {
+        let pos = consume_if(tokens, pos, "BRACE", "{");
+
+        let block = parse_statements_until_brace(tokens, pos);
+        let body = block[0];
+        let pos = block[1];
+
+        // }
+        let pos = consume_if(tokens, pos, "BRACE", "}");
+
+        return ["PC", name, body];
+    }
+
+    fn parse_statements_until_brace(tokens, pos) {
+        let stmts = [];
+        let done = 0;
+        let max = tok_count(tokens);
+
+        loop(MC_02.MUL8(max, 4)) as _i {
+            if (done == 0) {
+                if (pos < max) {
+                    if (is_tok(tokens, pos, "BRACE", "}") == 1) {
+                        let done = 1;
+                    } else {
+                        if (tok_kind(tokens, pos) == "EOF") {
+                            let done = 1;
+                        } else {
+                            let parsed = parse_statement(tokens, pos);
+                            let stmt = parsed[0];
+                            let next = parsed[1];
+                            let stmts = stmts.push(stmt);
+                            if (next == pos) {
+                                let pos = MC_00.ADD8(pos, 1);
+                            } else {
+                                let pos = next;
+                            }
+                        }
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        return [stmts, pos];
+    }
+
+    fn parse_statement(tokens, pos) {
+        if (pos < tok_count(tokens)) {
+            if (tok_kind(tokens, pos) == "KEYWORD") {
+                let kw = tok_val(tokens, pos);
+                if (kw == "let") {
+                    return parse_let(tokens, pos);
+                }
+                if (kw == "fn") {
+                    return parse_fn(tokens, pos);
+                }
+                if (kw == "if") {
+                    return parse_if(tokens, pos);
+                }
+                if (kw == "loop") {
+                    return parse_loop(tokens, pos);
+                }
+                if (kw == "return") {
+                    return parse_return(tokens, pos);
+                }
+                if (kw == "OUTPUT") {
+                    return parse_output(tokens, pos);
+                }
+            }
+        }
+
+        let parsed = parse_expression(tokens, pos);
+        let expr = parsed[0];
+        let next = consume_semicolon(tokens, parsed[1]);
+        return [expr, next];
+    }
+
+    fn parse_let(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "let");
+
+        let name = "";
+        if (pos < tok_count(tokens)) {
+            if (tok_kind(tokens, pos) == "IDENT") {
+                let name = tok_val(tokens, pos);
+                let pos = MC_00.ADD8(pos, 1);
+            }
+        }
+
+        let pos = consume_if(tokens, pos, "EQUALS", "=");
+
+        let parsed = parse_expression(tokens, pos);
+        let expr = parsed[0];
+        let next = consume_semicolon(tokens, parsed[1]);
+
+        return [["let", name, expr], next];
+    }
+
+    fn parse_fn(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "fn");
+
+        let name = "";
+        if (pos < tok_count(tokens)) {
+            if (tok_kind(tokens, pos) == "IDENT") {
+                let name = tok_val(tokens, pos);
+                let pos = MC_00.ADD8(pos, 1);
+            }
+        }
+
+        let pos = consume_if(tokens, pos, "PAREN", "(");
+
+        let params = [];
+        let done = 0;
+        let max = tok_count(tokens);
+        loop(MC_02.MUL8(max, 2)) as _p {
+            if (done == 0) {
+                if (pos < max) {
+                    if (is_tok(tokens, pos, "PAREN", ")") == 1) {
+                        let done = 1;
+                    } else {
+                        if (tok_kind(tokens, pos) == "IDENT") {
+                            let params = params.push(tok_val(tokens, pos));
+                            let pos = MC_00.ADD8(pos, 1);
+                        }
+                        let pos = consume_if(tokens, pos, "COMMA", ",");
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        let pos = consume_if(tokens, pos, "PAREN", ")");
+        let pos = consume_if(tokens, pos, "BRACE", "{");
+
+        let body_r = parse_statements_until_brace(tokens, pos);
+        let body = body_r[0];
+        let pos = body_r[1];
+
+        let pos = consume_if(tokens, pos, "BRACE", "}");
+
+        return [["fn", name, params, body], pos];
+    }
+
+    fn parse_if(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "if");
+        let pos = consume_if(tokens, pos, "PAREN", "(");
+
+        let cond_r = parse_expression(tokens, pos);
+        let cond = cond_r[0];
+        let pos = cond_r[1];
+
+        let pos = consume_if(tokens, pos, "PAREN", ")");
+        let pos = consume_if(tokens, pos, "BRACE", "{");
+
+        let then_r = parse_statements_until_brace(tokens, pos);
+        let then_body = then_r[0];
+        let pos = then_r[1];
+        let pos = consume_if(tokens, pos, "BRACE", "}");
+
+        let else_body = [];
+        if (is_tok(tokens, pos, "KEYWORD", "else") == 1) {
+            let pos = MC_00.ADD8(pos, 1);
+            let pos = consume_if(tokens, pos, "BRACE", "{");
+            let else_r = parse_statements_until_brace(tokens, pos);
+            let else_body = else_r[0];
+            let pos = else_r[1];
+            let pos = consume_if(tokens, pos, "BRACE", "}");
+        }
+
+        return [["if", cond, then_body, else_body], pos];
+    }
+
+    fn parse_loop(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "loop");
+        let pos = consume_if(tokens, pos, "PAREN", "(");
+
+        let count_r = parse_expression(tokens, pos);
+        let count_expr = count_r[0];
+        let pos = count_r[1];
+
+        let pos = consume_if(tokens, pos, "PAREN", ")");
+        let pos = consume_if(tokens, pos, "BRACE", "{");
+
+        let body_r = parse_statements_until_brace(tokens, pos);
+        let body = body_r[0];
+        let pos = body_r[1];
+
+        let pos = consume_if(tokens, pos, "BRACE", "}");
+
+        return [["loop", count_expr, body], pos];
+    }
+
+    fn parse_return(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "return");
+        let parsed = parse_expression(tokens, pos);
+        let expr = parsed[0];
+        let next = consume_semicolon(tokens, parsed[1]);
+        return [["return", expr], next];
+    }
+
+    fn parse_output(tokens, pos) {
+        let pos = consume_if(tokens, pos, "KEYWORD", "OUTPUT");
+        let parsed = parse_expression(tokens, pos);
+        let expr = parsed[0];
+        let next = consume_semicolon(tokens, parsed[1]);
+        return [["call", "OUTPUT", [expr]], next];
+    }
+
+    fn parse_expression(tokens, pos) {
+        return parse_or(tokens, pos);
+    }
+
+    fn parse_or(tokens, pos) {
+        let left_r = parse_and(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "||") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_and(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_and(tokens, pos) {
+        let left_r = parse_equality(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "&&") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_equality(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_equality(tokens, pos) {
+        let left_r = parse_comparison(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "==") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_comparison(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    if (is_tok(tokens, pos, "OPERATOR", "!=") == 1) {
+                        let op = tok_val(tokens, pos);
+                        let pos = MC_00.ADD8(pos, 1);
+                        let right_r = parse_comparison(tokens, pos);
+                        let right = right_r[0];
+                        let pos = right_r[1];
+                        let left = ["binop", op, left, right];
+                    } else {
+                        let done = 1;
+                    }
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_comparison(tokens, pos) {
+        let left_r = parse_additive(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "<") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_additive(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    if (is_tok(tokens, pos, "OPERATOR", "<=") == 1) {
+                        let op = tok_val(tokens, pos);
+                        let pos = MC_00.ADD8(pos, 1);
+                        let right_r = parse_additive(tokens, pos);
+                        let right = right_r[0];
+                        let pos = right_r[1];
+                        let left = ["binop", op, left, right];
+                    } else {
+                        if (is_tok(tokens, pos, "OPERATOR", ">") == 1) {
+                            let op = tok_val(tokens, pos);
+                            let pos = MC_00.ADD8(pos, 1);
+                            let right_r = parse_additive(tokens, pos);
+                            let right = right_r[0];
+                            let pos = right_r[1];
+                            let left = ["binop", op, left, right];
+                        } else {
+                            if (is_tok(tokens, pos, "OPERATOR", ">=") == 1) {
+                                let op = tok_val(tokens, pos);
+                                let pos = MC_00.ADD8(pos, 1);
+                                let right_r = parse_additive(tokens, pos);
+                                let right = right_r[0];
+                                let pos = right_r[1];
+                                let left = ["binop", op, left, right];
+                            } else {
+                                let done = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_additive(tokens, pos) {
+        let left_r = parse_multiplicative(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "+") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_multiplicative(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    if (is_tok(tokens, pos, "OPERATOR", "-") == 1) {
+                        let op = tok_val(tokens, pos);
+                        let pos = MC_00.ADD8(pos, 1);
+                        let right_r = parse_multiplicative(tokens, pos);
+                        let right = right_r[0];
+                        let pos = right_r[1];
+                        let left = ["binop", op, left, right];
+                    } else {
+                        let done = 1;
+                    }
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_multiplicative(tokens, pos) {
+        let left_r = parse_primary(tokens, pos);
+        let left = left_r[0];
+        let pos = left_r[1];
+
+        let done = 0;
+        loop(MC_02.MUL8(tok_count(tokens), 2)) as _i {
+            if (done == 0) {
+                if (is_tok(tokens, pos, "OPERATOR", "*") == 1) {
+                    let op = tok_val(tokens, pos);
+                    let pos = MC_00.ADD8(pos, 1);
+                    let right_r = parse_primary(tokens, pos);
+                    let right = right_r[0];
+                    let pos = right_r[1];
+                    let left = ["binop", op, left, right];
+                } else {
+                    if (is_tok(tokens, pos, "OPERATOR", "/") == 1) {
+                        let op = tok_val(tokens, pos);
+                        let pos = MC_00.ADD8(pos, 1);
+                        let right_r = parse_primary(tokens, pos);
+                        let right = right_r[0];
+                        let pos = right_r[1];
+                        let left = ["binop", op, left, right];
+                    } else {
+                        let done = 1;
+                    }
+                }
+            }
+        }
+
+        return [left, pos];
+    }
+
+    fn parse_args(tokens, pos) {
+        let args = [];
+        let done = 0;
+        let max = tok_count(tokens);
+
+        loop(MC_02.MUL8(max, 4)) as _a {
+            if (done == 0) {
+                if (pos < max) {
+                    if (is_tok(tokens, pos, "PAREN", ")") == 1) {
+                        let done = 1;
+                    } else {
+                        let arg_r = parse_expression(tokens, pos);
+                        let arg = arg_r[0];
+                        let pos = arg_r[1];
+                        let args = args.push(arg);
+                        let pos = consume_if(tokens, pos, "COMMA", ",");
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        return [args, pos];
+    }
+
+    fn parse_array_literal(tokens, pos) {
+        let pos = consume_if(tokens, pos, "BRACKET", "[");
+        let elems = [];
+        let done = 0;
+        let max = tok_count(tokens);
+
+        loop(MC_02.MUL8(max, 4)) as _e {
+            if (done == 0) {
+                if (pos < max) {
+                    if (is_tok(tokens, pos, "BRACKET", "]") == 1) {
+                        let done = 1;
+                    } else {
+                        let elem_r = parse_expression(tokens, pos);
+                        let elem = elem_r[0];
+                        let pos = elem_r[1];
+                        let elems = elems.push(elem);
+                        let pos = consume_if(tokens, pos, "COMMA", ",");
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        let pos = consume_if(tokens, pos, "BRACKET", "]");
+        return [["array", elems], pos];
+    }
+
+    fn parse_primary(tokens, pos) {
+        if (pos >= tok_count(tokens)) {
+            return [["ident", ""], pos];
+        }
+
+        let kind = tok_kind(tokens, pos);
+        let val = tok_val(tokens, pos);
+
+        if (kind == "NUMBER") {
+            return [["num", val], MC_00.ADD8(pos, 1)];
+        }
+
+        if (kind == "STRING") {
+            return [["str", val], MC_00.ADD8(pos, 1)];
+        }
+
+        if (kind == "BRACKET") {
+            if (val == "[") {
+                return parse_array_literal(tokens, pos);
+            }
+        }
+
+        if (kind == "PAREN") {
+            if (val == "(") {
+                let pos = MC_00.ADD8(pos, 1);
+                let inner = parse_expression(tokens, pos);
+                let expr = inner[0];
+                let pos = inner[1];
+                let pos = consume_if(tokens, pos, "PAREN", ")");
+                return [expr, pos];
+            }
+        }
+
+        if (kind == "IDENT") {
+            let name = val;
+            let pos = MC_00.ADD8(pos, 1);
+
+            // monomer call: MC_XX.OP(...)
+            if (is_tok(tokens, pos, "DOT", ".") == 1) {
+                let pos = MC_00.ADD8(pos, 1);
+                if (pos < tok_count(tokens)) {
+                    if (tok_kind(tokens, pos) == "IDENT") {
+                        let rhs = tok_val(tokens, pos);
+                        let pos = MC_00.ADD8(pos, 1);
+                        if (is_tok(tokens, pos, "PAREN", "(") == 1) {
+                            let pos = MC_00.ADD8(pos, 1);
+                            let args_r = parse_args(tokens, pos);
+                            let args = args_r[0];
+                            let pos = args_r[1];
+                            let pos = consume_if(tokens, pos, "PAREN", ")");
+
+                            if (is_monomer_name(name) == 1) {
+                                let full = MC_40.CONCAT(MC_40.CONCAT(name, "."), rhs);
+                                return [["monomer", full, args], pos];
+                            } else {
+                                let call_name = rhs;
+                                let call_args = [["ident", name]];
+                                let alen = args.len();
+                                loop(alen) as i {
+                                    let call_args = call_args.push(args[i]);
+                                }
+                                return [["call", call_name, call_args], pos];
+                            }
+                        }
+                    }
+                }
+                return [["ident", name], pos];
+            }
+
+            // function call: fn(args)
+            if (is_tok(tokens, pos, "PAREN", "(") == 1) {
+                let pos = MC_00.ADD8(pos, 1);
+                let args_r = parse_args(tokens, pos);
+                let args = args_r[0];
+                let pos = args_r[1];
+                let pos = consume_if(tokens, pos, "PAREN", ")");
+                return [["call", name, args], pos];
+            }
+
+            return [["ident", name], pos];
+        }
+
+        return [["ident", val], MC_00.ADD8(pos, 1)];
+    }
+
+    let ast = parse_program(tokens);
+    OUTPUT ast;
+}

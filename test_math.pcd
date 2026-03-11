@@ -1,0 +1,14 @@
+// test_math.pcd — Valida stdlib/math_core.pcd (sin math_gcd/math_pow — requieren muchas iters)
+// brikc run test_math.pcd
+// Esperado: [15, 3, 7, 5, 12]
+
+import "../stdlib/math_core.pcd"
+
+PC test_math {
+    let a   = math_abs(-15);
+    let mn  = math_min(3, 7);
+    let mx  = math_max(3, 7);
+    let cl  = math_clamp(10, 0, 5);
+    let mul = math_mul(3, 4);
+    return [a, mn, mx, cl, mul];
+}

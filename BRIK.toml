@@ -1,0 +1,10 @@
+# Example BRIK.toml manifest for BRIK-64 polymer projects
+[package]
+name = "brik_examples"
+version = "1.0.0"
+entry = "hello.pcd"
+
+[dependencies]
+strings = { path = "../stdlib/strings" }
+math = { path = "../stdlib/math" }
+dispatch = { path = "../stdlib/dispatch" }

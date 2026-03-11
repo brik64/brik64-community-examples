@@ -1,0 +1,12 @@
+// hello_world.pcd
+// Hello World canónico en BRIK-64
+// Demuestra: literal string, return value, brikc run directo
+//
+// Uso:
+//   brikc run hello_world.pcd
+// Salida: Hello, World!
+
+PC hello_world {
+    let greeting = "Hello, World!";
+    return greeting;
+}

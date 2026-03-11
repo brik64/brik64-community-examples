@@ -1,0 +1,18 @@
+// test_array.pcd — Valida stdlib/array.pcd
+// brikc run test_array.pcd
+// Esperado: [3, 4, 2, -1, 2]
+
+import "../stdlib/array.pcd"
+
+PC test_array {
+    let arr  = [10, 20, 30];
+    let len1 = array_len(arr);
+    let arr2 = array_push_val(arr, 40);
+    let len2 = array_len(arr2);
+    let words    = ["a", "b", "c", "d"];
+    let idx      = array_index_of(words, "c");
+    let notfound = array_index_of(words, "z");
+    let sl       = array_slice(words, 1, 2);
+    let slen     = sl.len();
+    return [len1, len2, idx, notfound, slen];
+}

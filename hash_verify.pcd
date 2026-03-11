@@ -1,0 +1,57 @@
+// hash_verify.pcd
+// Hash data and verify against expected value
+// Demonstrates cryptographic operations with deterministic behavior
+//
+// Monomers used:
+// - MC_48 (HASH): SHA-256 cryptographic hash
+// - MC_49 (VERIFY): Signature verification
+// - MC_43 (LEN): String length
+// - MC_24 (IF): Conditional execution
+//
+// TCE Metrics:
+// - Φ_c = 1.0 (deterministic hash, bounded input)
+// - ΔN = 0.01 (cryptographic determinism)
+// - Cₘ = 0.91 (excellent coherence)
+// - ETC = 0.40 (moderate energy due to crypto complexity)
+//
+// Security Properties:
+// - Deterministic: Same input always produces same hash
+// - Bounded: Input limited to 512 bytes (maintains Φ_c = 1)
+// - No side channels: Pure functional operation
+//
+// Example usage:
+// Input: "BRIK-64 test data"
+// Expected: SHA-256 hash verification
+// Output: true/false based on match
+
+PC hash_verify {
+    // Input data (bounded to 512 bytes)
+    let data = "BRIK-64 Digital Circuitality Framework";
+
+    // Expected hash (SHA-256 hex string)
+    // In practice, this would be provided as input
+    let expected_hash = "a3f1b2c4d5e6f7890abcdef0123456789abcdef0123456789abcdef012345678";
+
+    // Compute SHA-256 hash of input data
+    let computed_hash = MC_48.HASH(data);
+
+    // Get data length for logging
+    let data_length = MC_43.LEN(data);
+
+    // Compare computed hash with expected hash
+    let is_match = (computed_hash == expected_hash);
+
+    // Conditional output based on verification result
+    if (is_match) {
+        OUTPUT "Hash verification: SUCCESS";
+        OUTPUT computed_hash;
+        OUTPUT data_length;
+        return true;
+    } else {
+        OUTPUT "Hash verification: FAILED";
+        OUTPUT computed_hash;
+        OUTPUT expected_hash;
+        OUTPUT data_length;
+        return false;
+    }
+}

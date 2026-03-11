@@ -1,0 +1,1394 @@
+PC bir_interpreter {
+
+    // === INT HELPERS ===
+    fn int_to_str(n) {
+        if (n == 0) { return "0"; }
+        if (n < 0) {
+            let pos = 0 - n;
+            return MC_40.CONCAT("-", int_to_str_pos(pos));
+        }
+        return int_to_str_pos(n);
+    }
+
+    fn int_to_str_pos(n) {
+        if (n == 0) { return "0"; }
+        if (n < 10) {
+            if (n == 1) { return "1"; }
+            if (n == 2) { return "2"; }
+            if (n == 3) { return "3"; }
+            if (n == 4) { return "4"; }
+            if (n == 5) { return "5"; }
+            if (n == 6) { return "6"; }
+            if (n == 7) { return "7"; }
+            if (n == 8) { return "8"; }
+            if (n == 9) { return "9"; }
+        }
+        // Use i64-safe subtraction loop instead of MC_03.DIV8 (which truncates to u8).
+        // Computes quot = n/10 and rem = n%10 for any i64 value.
+        let quot = 0;
+        let rem  = n;
+        loop(10000) as _dv {
+            if (rem < 10) { return MC_40.CONCAT(int_to_str_pos(quot), int_to_str_pos(rem)); }
+            let rem  = rem  - 10;
+            let quot = quot + 1;
+        }
+        return MC_40.CONCAT(int_to_str_pos(quot), int_to_str_pos(rem));
+    }
+
+    // === VALUE HELPERS ===
+    fn make_i64(n)   { return #{"type": "i64",   "val": n}; }
+    fn make_str(s)   { return #{"type": "str",   "val": s}; }
+    fn make_bool(b)  { return #{"type": "bool",  "val": b}; }
+    fn make_unit()   { return #{"type": "unit",  "val": 0}; }
+    fn make_none()   { return #{"type": "none",  "val": 0}; }
+    fn make_ok(v)    { return #{"type": "ok",    "val": v}; }
+    fn make_err(v)   { return #{"type": "err",   "val": v}; }
+    fn val_type(v)   { return v.get("type"); }
+    fn val_get(v)    { return v.get("val"); }
+
+    fn val_as_int(v) {
+        let t = val_type(v);
+        if (t == "i64")  { return val_get(v); }
+        if (t == "u8")   { return val_get(v); }
+        if (t == "bool") { return val_get(v); }
+        return 0;
+    }
+    fn val_as_bool(v) {
+        let i = val_as_int(v);
+        if (i == 0) { return 0; }
+        return 1;
+    }
+    fn val_as_str(v) {
+        if (val_type(v) == "str") { return val_get(v); }
+        return "";
+    }
+
+    // === MONOMER DISPATCHER (inline, no import) ===
+    fn dispatch_monomer(id, args) {
+        if (id < 8)  { return dispatch_arithmetic(id, args); }
+        if (id < 16) { return dispatch_logic(id, args); }
+        if (id < 24) { return dispatch_memory(id, args); }
+        if (id < 32) { return dispatch_control(id, args); }
+        if (id < 40) { return dispatch_io(id, args); }
+        if (id < 48) { return dispatch_strings(id, args); }
+        if (id < 56) { return dispatch_crypto(id, args); }
+        return dispatch_system(id, args);
+    }
+
+    fn dispatch_arithmetic(sub_id, args) {
+        let a = val_as_int(args.get(0));
+        let b = 0;
+        if (args.len() > 1) { let b = val_as_int(args.get(1)); }
+        if (sub_id == 0) { return make_i64(MC_00.ADD8(a, b)); }
+        if (sub_id == 1) { return make_i64(MC_01.SUB8(a, b)); }
+        if (sub_id == 2) { return make_i64(MC_02.MUL8(a, b)); }
+        if (sub_id == 3) {
+            let result = MC_03.DIV8(a, b);
+            let q = result.get(0);
+            let r = result.get(1);
+            return #{"type": "array", "val": [make_i64(q), make_i64(r)]};
+        }
+        if (sub_id == 4) { return make_i64(MC_04.INC(a)); }
+        if (sub_id == 5) { return make_i64(MC_05.DEC(a)); }
+        if (sub_id == 6) { return make_i64(MC_06.ABS(a)); }
+        if (sub_id == 7) {
+            let min_v = 0;
+            let max_v = 255;
+            if (args.len() > 1) { let min_v = val_as_int(args.get(1)); }
+            if (args.len() > 2) { let max_v = val_as_int(args.get(2)); }
+            return make_i64(MC_07.CLAMP(a, min_v, max_v));
+        }
+        return make_unit();
+    }
+
+    fn dispatch_logic(sub_id, args) {
+        let a = val_as_int(args.get(0));
+        let b = 0;
+        if (args.len() > 1) { let b = val_as_int(args.get(1)); }
+        let local_id = MC_01.SUB8(sub_id, 8);
+        if (local_id == 0) { return make_i64(MC_08.AND8(a, b)); }
+        if (local_id == 1) { return make_i64(MC_09.OR8(a, b)); }
+        if (local_id == 2) { return make_i64(MC_10.XOR8(a, b)); }
+        if (local_id == 3) { return make_i64(MC_11.NOT8(a)); }
+        if (local_id == 4) { return make_i64(MC_12.SHL(a, b)); }
+        if (local_id == 5) { return make_i64(MC_13.SHR(a, b)); }
+        if (local_id == 6) { return make_i64(MC_14.ROL(a, b)); }
+        if (local_id == 7) { return make_i64(MC_15.ROR(a, b)); }
+        return make_unit();
+    }
+
+    fn dispatch_memory(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 16);
+        if (local_id == 0) {
+            let mem = val_get(args.get(0));
+            let idx = val_as_int(args.get(1));
+            return mem.get(idx);
+        }
+        if (local_id == 1) {
+            let value = args.get(0);
+            let mem   = val_get(args.get(1));
+            let idx   = val_as_int(args.get(2));
+            return #{"type": "array", "val": mem.set(idx, value)};
+        }
+        if (local_id == 2) {
+            let arr = val_get(args.get(0));
+            let v   = args.get(1);
+            return #{"type": "array", "val": arr.push(v)};
+        }
+        if (local_id == 3) {
+            let arr = val_get(args.get(0));
+            let len = arr.len();
+            let last = arr.get(MC_01.SUB8(len, 1));
+            let new_arr = [];
+            let i = 0;
+            let limit = MC_01.SUB8(len, 1);
+            loop(limit) as _pi {
+                if (i >= limit) { return #{"type": "array", "val": [last, #{"type": "array", "val": new_arr}]}; }
+                let new_arr = new_arr.push(arr.get(i));
+                let i = MC_00.ADD8(i, 1);
+            }
+            return #{"type": "array", "val": [last, #{"type": "array", "val": new_arr}]};
+        }
+        if (local_id == 4) {
+            let arr = val_get(args.get(0));
+            return arr.get(MC_01.SUB8(arr.len(), 1));
+        }
+        if (local_id == 5) {
+            return #{"type": "array", "val": [args.get(1), args.get(0)]};
+        }
+        if (local_id == 6) {
+            return #{"type": "array", "val": [args.get(0), args.get(0)]};
+        }
+        if (local_id == 7) { return make_unit(); }
+        return make_unit();
+    }
+
+    fn dispatch_control(sub_id, args) {
+        return make_unit();
+    }
+
+    fn dispatch_io(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 32);
+        if (local_id == 0) { return make_str(""); }
+        if (local_id == 1) { return make_unit(); }
+        return make_unit();
+    }
+
+    fn dispatch_strings(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 40);
+        if (local_id == 0) {
+            let a = val_as_str(args.get(0));
+            let b = val_as_str(args.get(1));
+            return make_str(MC_40.CONCAT(a, b));
+        }
+        if (local_id == 1) {
+            let s   = val_as_str(args.get(0));
+            let sep = val_as_str(args.get(1));
+            let parts = MC_41.SPLIT(s, sep);
+            let result = [];
+            let i = 0;
+            let n = parts.len();
+            loop(n) as _si {
+                if (i >= n) { return #{"type": "array", "val": result}; }
+                let result = result.push(make_str(parts.get(i)));
+                let i = MC_00.ADD8(i, 1);
+            }
+            return #{"type": "array", "val": result};
+        }
+        if (local_id == 2) {
+            let s     = val_as_str(args.get(0));
+            let start = val_as_int(args.get(1));
+            let len   = val_as_int(args.get(2));
+            return make_str(MC_42.SUBSTR(s, start, len));
+        }
+        if (local_id == 3) {
+            let s = val_as_str(args.get(0));
+            return make_i64(MC_43.LEN(s));
+        }
+        if (local_id == 4) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_44.UPPER(s));
+        }
+        if (local_id == 5) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_45.LOWER(s));
+        }
+        if (local_id == 6) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_46.TRIM(s));
+        }
+        if (local_id == 7) {
+            let s       = val_as_str(args.get(0));
+            let pattern = val_as_str(args.get(1));
+            let matched = MC_47.MATCH(s, pattern);
+            return make_bool(matched);
+        }
+        return make_unit();
+    }
+
+    fn dispatch_crypto(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 48);
+        if (local_id == 0) {
+            return make_str("0000000000000000000000000000000000000000000000000000000000000000");
+        }
+        return make_unit();
+    }
+
+    fn dispatch_system(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 56);
+        if (local_id == 0) { return make_i64(0); }
+        if (local_id == 1) { return make_i64(0); }
+        if (local_id == 2) { return make_i64(0); }
+        return make_unit();
+    }
+
+    // === BIR PARSER (inline minimal) ===
+    fn parse_bir_module(text) {
+        let lines = MC_41.SPLIT(text, "\n");
+        let n = lines.len();
+        let module = #{};
+        let i = 0;
+        let module = parse_header(lines, n, module, i);
+        return module;
+    }
+
+    fn parse_header(lines, n, module, i) {
+        let module = module.set("name", "");
+        let module = module.set("version", 1);
+        let module = module.set("inputs", []);
+        let module = module.set("output_var", "");
+        let module = module.set("var_names", []);
+        let module = module.set("var_names_str", "");
+        let module = module.set("string_table", []);
+        let module = module.set("functions", #{});
+        let module = module.set("instructions", []);
+        let i = 0;
+        loop(n) as _ph {
+            if (i >= n) { return module; }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            if (MC_47.MATCH(line, "MODULE ")) {
+                let name = MC_42.SUBSTR(line, 7, MC_01.SUB8(MC_43.LEN(line), 7));
+                let module = module.set("name", MC_46.TRIM(name));
+            }
+            if (MC_47.MATCH(line, "OUTPUT ")) {
+                let oname = MC_42.SUBSTR(line, 7, MC_01.SUB8(MC_43.LEN(line), 7));
+                let module = module.set("output_var", MC_46.TRIM(oname));
+            }
+            if (MC_47.MATCH(line, "VARS ")) {
+                let vstr = MC_42.SUBSTR(line, 5, MC_01.SUB8(MC_43.LEN(line), 5));
+                let module = module.set("var_names_str", MC_46.TRIM(vstr));
+            }
+            if (MC_47.MATCH(line, "STRINGS ")) {
+                let count_str = MC_42.SUBSTR(line, 8, MC_01.SUB8(MC_43.LEN(line), 8));
+                let count = str_to_int(MC_46.TRIM(count_str));
+                let result = parse_strings(lines, n, module, i, count);
+                let module = result.get(0);
+                let i = result.get(1);
+            }
+            if (MC_47.MATCH(line, "FUNCTIONS ")) {
+                let count_str = MC_42.SUBSTR(line, 10, MC_01.SUB8(MC_43.LEN(line), 10));
+                let count = str_to_int(MC_46.TRIM(count_str));
+                let result = parse_functions(lines, n, module, i, count);
+                let module = result.get(0);
+                let i = result.get(1);
+            }
+            if (MC_47.MATCH(line, "INSTRUCTIONS ")) {
+                let count_str = MC_42.SUBSTR(line, 13, MC_01.SUB8(MC_43.LEN(line), 13));
+                let count = str_to_int(MC_46.TRIM(count_str));
+                let result = parse_instructions(lines, n, module, i, count);
+                let module = result.get(0);
+                let i = result.get(1);
+            }
+        }
+        return module;
+    }
+
+    fn parse_strings(lines, n, module, i, count) {
+        let strings = [];
+        let j = 0;
+        loop(count) as _pstr {
+            if (j >= count) { return [module.set("string_table", strings), i]; }
+            if (i >= n) { return [module.set("string_table", strings), i]; }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            let j = MC_00.ADD8(j, 1);
+            let val = extract_string_value(line);
+            let strings = strings.push(val);
+        }
+        return [module.set("string_table", strings), i];
+    }
+
+    fn extract_string_value(line) {
+        let len = MC_43.LEN(line);
+        let qi = find_quote(line, 0, len);
+        if (qi < 0) { return ""; }
+        let start = MC_00.ADD8(qi, 1);
+        let qi2 = find_quote(line, start, len);
+        if (qi2 < 0) { return ""; }
+        let slen = MC_01.SUB8(qi2, start);
+        return MC_42.SUBSTR(line, start, slen);
+    }
+
+    fn find_quote(s, from, len) {
+        let i = from;
+        loop(len) as _fq {
+            if (i >= len) { return 0 - 1; }
+            let ch = MC_42.SUBSTR(s, i, 1);
+            if (ch == "\"") { return i; }
+            let i = MC_00.ADD8(i, 1);
+        }
+        return 0 - 1;
+    }
+
+    fn parse_functions(lines, n, module, i, count) {
+        let funcs = #{};
+        let j = 0;
+        loop(count) as _pfn {
+            if (j >= count) { return [module.set("functions", funcs), i]; }
+            if (i >= n) { return [module.set("functions", funcs), i]; }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            let j = MC_00.ADD8(j, 1);
+            let result = parse_function_line(line);
+            let fname = result.get(0);
+            let fpc   = result.get(1);
+            let funcs = funcs.set(fname, fpc);
+        }
+        return [module.set("functions", funcs), i];
+    }
+
+    fn parse_function_line(line) {
+        let len = MC_43.LEN(line);
+        if (len < 3) { return ["", 0]; }
+        let rest = MC_42.SUBSTR(line, 2, MC_01.SUB8(len, 2));
+        let colon_pos = find_char(rest, ":", 0, MC_43.LEN(rest));
+        if (colon_pos < 0) { return [rest, 0]; }
+        let name = MC_46.TRIM(MC_42.SUBSTR(rest, 0, colon_pos));
+        let pc_str = MC_46.TRIM(MC_42.SUBSTR(rest, MC_00.ADD8(colon_pos, 1), MC_01.SUB8(MC_43.LEN(rest), MC_00.ADD8(colon_pos, 1))));
+        return [name, str_to_int(pc_str)];
+    }
+
+    fn find_char(s, ch, from, len) {
+        let i = from;
+        loop(len) as _fc {
+            if (i >= len) { return 0 - 1; }
+            let c = MC_42.SUBSTR(s, i, 1);
+            if (c == ch) { return i; }
+            let i = MC_00.ADD8(i, 1);
+        }
+        return 0 - 1;
+    }
+
+    fn parse_instructions(lines, n, module, i, count) {
+        let instrs = [];
+        let j = 0;
+        loop(count) as _pi2 {
+            if (j >= count) { return [module.set("instructions", instrs), i]; }
+            if (i >= n) { return [module.set("instructions", instrs), i]; }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            let j = MC_00.ADD8(j, 1);
+            let instr = decode_instruction(line);
+            let instrs = instrs.push(instr);
+        }
+        return [module.set("instructions", instrs), i];
+    }
+
+    fn decode_instruction(line) {
+        let len = MC_43.LEN(line);
+        if (len == 0) { return [1, "HALT", 0]; }
+        let colon = find_char(line, ":", 0, len);
+        if (colon < 0) { return [1, "HALT", 0]; }
+        let rest = MC_46.TRIM(MC_42.SUBSTR(line, MC_00.ADD8(colon, 1), MC_01.SUB8(len, MC_00.ADD8(colon, 1))));
+        return decode_op_str(rest);
+    }
+
+    fn decode_op_str(s) {
+        let len = MC_43.LEN(s);
+        if (len == 0) { return [1, "HALT", 0]; }
+        let sp = find_char(s, " ", 0, len);
+        let mnemonic = s;
+        let operand_str = "";
+        if (sp >= 0) {
+            let mnemonic = MC_42.SUBSTR(s, 0, sp);
+            let operand_str = MC_46.TRIM(MC_42.SUBSTR(s, MC_00.ADD8(sp, 1), MC_01.SUB8(len, MC_00.ADD8(sp, 1))));
+        }
+        return [opcode_from_mnemonic(mnemonic), mnemonic, decode_operand(mnemonic, operand_str)];
+    }
+
+    fn opcode_from_mnemonic(m) {
+        if (m == "NOP")         { return 0; }
+        if (m == "HALT")        { return 1; }
+        if (m == "PUSH_UNIT")   { return 16; }
+        if (m == "PUSH_BOOL")   { return 17; }
+        if (m == "PUSH_U8")     { return 18; }
+        if (m == "PUSH_I64")    { return 19; }
+        if (m == "PUSH_U64")    { return 20; }
+        if (m == "PUSH_STR")    { return 21; }
+        if (m == "LOAD")        { return 32; }
+        if (m == "STORE")       { return 33; }
+        if (m == "CALL_MC")     { return 48; }
+        if (m == "JUMP")        { return 64; }
+        if (m == "JUMP_IF")     { return 65; }
+        if (m == "JUMP_IF_NOT") { return 66; }
+        if (m == "CMP_EQ")      { return 80; }
+        if (m == "CMP_NE")      { return 81; }
+        if (m == "CMP_LT")      { return 82; }
+        if (m == "CMP_LE")      { return 83; }
+        if (m == "CMP_GT")      { return 84; }
+        if (m == "CMP_GE")      { return 85; }
+        if (m == "DUP")         { return 96; }
+        if (m == "DROP")        { return 97; }
+        if (m == "SWAP")        { return 98; }
+        if (m == "CALL")        { return 112; }
+        if (m == "RET")         { return 113; }
+        if (m == "STRUCT_NEW")  { return 128; }
+        if (m == "FIELD_GET")   { return 129; }
+        if (m == "FIELD_SET")   { return 130; }
+        if (m == "ENUM_TAG")    { return 131; }
+        if (m == "MATCH_EQ")    { return 144; }
+        if (m == "ENUM_GETTAG") { return 145; }
+        if (m == "ENUM_GETDAT") { return 146; }
+        if (m == "MAKE_CLOSURE") { return 160; }
+        if (m == "CALL_CLOSURE") { return 161; }
+        if (m == "ARRAY_NEW")   { return 176; }
+        if (m == "ARRAY_GET")   { return 177; }
+        if (m == "ARRAY_SET")   { return 178; }
+        if (m == "COLLECTION_LEN") { return 179; }
+        if (m == "MAP_NEW")     { return 180; }
+        if (m == "MAP_GET")     { return 181; }
+        if (m == "MAP_SET")     { return 182; }
+        if (m == "METHOD_DISPATCH") { return 183; }
+        if (m == "WRAP_OK")     { return 192; }
+        if (m == "WRAP_ERR")    { return 193; }
+        if (m == "PUSH_NONE")   { return 194; }
+        if (m == "TRY_UNWRAP")  { return 195; }
+        if (m == "TRY_BEGIN")   { return 196; }
+        if (m == "TRY_END")     { return 197; }
+        if (m == "ADD_I64")     { return 184; }
+        if (m == "SUB_I64")     { return 185; }
+        if (m == "MUL_I64")     { return 186; }
+        return 1;
+    }
+
+    fn decode_operand(mnemonic, s) {
+        if (mnemonic == "HALT")   { return 0; }
+        if (mnemonic == "NOP")    { return 0; }
+        if (mnemonic == "RET")    { return 0; }
+        if (mnemonic == "DUP")    { return 0; }
+        if (mnemonic == "DROP")   { return 0; }
+        if (mnemonic == "SWAP")   { return 0; }
+        if (mnemonic == "ARRAY_GET")  { return 0; }
+        if (mnemonic == "ARRAY_SET")  { return 0; }
+        if (mnemonic == "COLLECTION_LEN") { return 0; }
+        if (mnemonic == "MAP_GET")    { return 0; }
+        if (mnemonic == "MAP_SET")    { return 0; }
+        if (mnemonic == "WRAP_OK")    { return 0; }
+        if (mnemonic == "WRAP_ERR")   { return 0; }
+        if (mnemonic == "PUSH_NONE")  { return 0; }
+        if (mnemonic == "TRY_UNWRAP") { return 0; }
+        if (mnemonic == "ENUM_GETTAG") { return 0; }
+        if (mnemonic == "ENUM_GETDAT") { return 0; }
+        if (mnemonic == "CMP_EQ")  { return 0; }
+        if (mnemonic == "CMP_NE")  { return 0; }
+        if (mnemonic == "CMP_LT")  { return 0; }
+        if (mnemonic == "CMP_LE")  { return 0; }
+        if (mnemonic == "CMP_GT")  { return 0; }
+        if (mnemonic == "CMP_GE")  { return 0; }
+        if (mnemonic == "PUSH_STR") {
+            let at_pos = find_char(s, "@", 0, MC_43.LEN(s));
+            if (at_pos >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(at_pos, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(at_pos, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return 0;
+        }
+        if (mnemonic == "LOAD") {
+            let dol = find_char(s, "$", 0, MC_43.LEN(s));
+            if (dol >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(dol, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(dol, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return str_to_int(MC_46.TRIM(s));
+        }
+        if (mnemonic == "STORE") {
+            let dol = find_char(s, "$", 0, MC_43.LEN(s));
+            if (dol >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(dol, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(dol, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return str_to_int(MC_46.TRIM(s));
+        }
+        if (mnemonic == "CALL_MC") {
+            let paren = find_char(s, "(", 0, MC_43.LEN(s));
+            if (paren >= 0) {
+                let id_str = MC_42.SUBSTR(s, 0, paren);
+                let id = str_to_int(MC_46.TRIM(id_str));
+                let rest = MC_42.SUBSTR(s, MC_00.ADD8(paren, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(paren, 1)));
+                let sp = find_char(rest, " ", 0, MC_43.LEN(rest));
+                let argc_str = rest;
+                if (sp >= 0) { let argc_str = MC_42.SUBSTR(rest, 0, sp); }
+                let argc = str_to_int(MC_46.TRIM(argc_str));
+                return [id, argc];
+            }
+            return [str_to_int(MC_46.TRIM(s)), 0];
+        }
+        if (mnemonic == "JUMP") {
+            let plus = find_char(s, "+", 0, MC_43.LEN(s));
+            if (plus >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(plus, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(plus, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return str_to_int(MC_46.TRIM(s));
+        }
+        if (mnemonic == "JUMP_IF") {
+            let plus = find_char(s, "+", 0, MC_43.LEN(s));
+            if (plus >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(plus, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(plus, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return str_to_int(MC_46.TRIM(s));
+        }
+        if (mnemonic == "JUMP_IF_NOT") {
+            let plus = find_char(s, "+", 0, MC_43.LEN(s));
+            if (plus >= 0) {
+                let num = MC_42.SUBSTR(s, MC_00.ADD8(plus, 1), MC_01.SUB8(MC_43.LEN(s), MC_00.ADD8(plus, 1)));
+                return str_to_int(MC_46.TRIM(num));
+            }
+            return str_to_int(MC_46.TRIM(s));
+        }
+        if (mnemonic == "CALL") { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "TRY_BEGIN") { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "TRY_END")   { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "MATCH_EQ")  { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "MAKE_CLOSURE") { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "CALL_CLOSURE") { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "ARRAY_NEW") { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "MAP_NEW")   { return str_to_int(MC_46.TRIM(s)); }
+        if (mnemonic == "METHOD_DISPATCH") { return str_to_int(MC_46.TRIM(s)); }
+        return str_to_int(MC_46.TRIM(s));
+    }
+
+    fn str_to_int(s) {
+        let len = MC_43.LEN(s);
+        if (len == 0) { return 0; }
+        let neg = 0;
+        let start = 0;
+        let first = MC_42.SUBSTR(s, 0, 1);
+        if (first == "-") { let neg = 1; let start = 1; }
+        let result = 0;
+        let i = start;
+        loop(len) as _sti {
+            if (i >= len) {
+                if (neg == 1) { return 0 - result; }
+                return result;
+            }
+            let ch = MC_42.SUBSTR(s, i, 1);
+            let d = char_to_digit(ch);
+            let result = MC_00.ADD8(MC_02.MUL8(result, 10), d);
+            let i = MC_00.ADD8(i, 1);
+        }
+        if (neg == 1) { return 0 - result; }
+        return result;
+    }
+
+    fn char_to_digit(ch) {
+        if (ch == "0") { return 0; }
+        if (ch == "1") { return 1; }
+        if (ch == "2") { return 2; }
+        if (ch == "3") { return 3; }
+        if (ch == "4") { return 4; }
+        if (ch == "5") { return 5; }
+        if (ch == "6") { return 6; }
+        if (ch == "7") { return 7; }
+        if (ch == "8") { return 8; }
+        if (ch == "9") { return 9; }
+        return 0;
+    }
+
+    // === STATE MANAGEMENT ===
+    fn init_state(module, inputs) {
+        let vars = #{};
+        let input_names = module.get("inputs");
+        let n = input_names.len();
+        let i = 0;
+        loop(n) as _is {
+            if (i >= n) { return build_initial_state(vars); }
+            let slot_key = int_to_str(i);
+            let val = make_str("");
+            if (i < inputs.len()) { let val = inputs.get(i); }
+            let vars = vars.set(slot_key, val);
+            let i = MC_00.ADD8(i, 1);
+        }
+        return build_initial_state(vars);
+    }
+
+    fn build_initial_state(vars) {
+        return #{
+            "stack":         [],
+            "vars":          vars,
+            "call_stack":    [],
+            "handler_stack": [],
+            "pc":            0,
+            "steps":         0,
+            "output":        [],
+            "halted":        0
+        };
+    }
+
+    fn stack_push(state, val) {
+        let stack = state.get("stack");
+        let stack = stack.push(val);
+        return state.set("stack", stack);
+    }
+
+    fn stack_pop(state) {
+        let stack = state.get("stack");
+        let n = stack.len();
+        if (n == 0) { return [make_unit(), state]; }
+        let top = stack.get(MC_01.SUB8(n, 1));
+        let new_stack = stack_drop_last(stack, n);
+        return [top, state.set("stack", new_stack)];
+    }
+
+    fn stack_peek(state) {
+        let stack = state.get("stack");
+        let n = stack.len();
+        if (n == 0) { return make_unit(); }
+        return stack.get(MC_01.SUB8(n, 1));
+    }
+
+    fn stack_drop_last(stack, n) {
+        if (n <= 1) { return []; }
+        let result = [];
+        let i = 0;
+        let limit = MC_01.SUB8(n, 1);
+        loop(limit) as _dl {
+            if (i >= limit) { return result; }
+            let result = result.push(stack.get(i));
+            let i = MC_00.ADD8(i, 1);
+        }
+        return result;
+    }
+
+    fn advance_pc(state) {
+        return state.set("pc", MC_00.ADD8(state.get("pc"), 1));
+    }
+
+    fn var_load(state, slot) {
+        let key = int_to_str(slot);
+        let vars = state.get("vars");
+        let val = vars.get(key);
+        if (val == 0) { return make_unit(); }
+        return val;
+    }
+
+    fn var_store(state, slot, val) {
+        let key = int_to_str(slot);
+        let vars = state.get("vars").set(key, val);
+        return state.set("vars", vars);
+    }
+
+    // === DISPATCH OP ===
+    fn dispatch_op(op, instr, module, state, strings) {
+        let operand = instr.get(2);
+
+        if (op == 0)  { return advance_pc(state); }
+        if (op == 1) {
+            let top = stack_peek(state);
+            let out = state.get("output").push(top);
+            return state.set("halted", 1).set("output", out);
+        }
+
+        if (op == 16) { return advance_pc(stack_push(state, make_unit())); }
+        if (op == 17) { return advance_pc(stack_push(state, make_bool(operand))); }
+        if (op == 18) { return advance_pc(stack_push(state, #{"type": "u8", "val": operand})); }
+        if (op == 19) { return advance_pc(stack_push(state, make_i64(operand))); }
+        if (op == 20) { return advance_pc(stack_push(state, #{"type": "u64", "val": operand})); }
+        if (op == 21) {
+            let s = strings.get(operand);
+            return advance_pc(stack_push(state, make_str(s)));
+        }
+
+        if (op == 32) {
+            let v = var_load(state, operand);
+            return advance_pc(stack_push(state, v));
+        }
+        if (op == 33) {
+            let popped = stack_pop(state);
+            let v     = popped.get(0);
+            let state = popped.get(1);
+            let state = var_store(state, operand, v);
+            return advance_pc(state);
+        }
+
+        if (op == 48) {
+            let mon_id = operand.get(0);
+            let argc   = operand.get(1);
+            let args   = [];
+            let i      = 0;
+            let st     = state;
+            loop(MC_00.ADD8(argc, 1)) as _ma {
+                if (i >= argc) {
+                    let rev_args = reverse_array(args, args.len());
+                    let result   = dispatch_monomer(mon_id, rev_args);
+                    return advance_pc(stack_push(st, result));
+                }
+                let popped = stack_pop(st);
+                let args   = args.push(popped.get(0));
+                let st     = popped.get(1);
+                let i      = MC_00.ADD8(i, 1);
+            }
+            let result = dispatch_monomer(mon_id, []);
+            return advance_pc(stack_push(state, result));
+        }
+
+        if (op == 64) {
+            let new_pc = MC_00.ADD8(state.get("pc"), operand);
+            return state.set("pc", new_pc);
+        }
+        if (op == 65) {
+            let popped = stack_pop(state);
+            let v     = popped.get(0);
+            let state = popped.get(1);
+            if (val_as_bool(v) == 1) {
+                return state.set("pc", MC_00.ADD8(state.get("pc"), operand));
+            }
+            return advance_pc(state);
+        }
+        if (op == 66) {
+            let popped = stack_pop(state);
+            let v     = popped.get(0);
+            let state = popped.get(1);
+            if (val_as_bool(v) == 0) {
+                return state.set("pc", MC_00.ADD8(state.get("pc"), operand));
+            }
+            return advance_pc(state);
+        }
+
+        if (op == 80) { return advance_pc(op_cmp(state, "eq")); }
+        if (op == 81) { return advance_pc(op_cmp(state, "ne")); }
+        if (op == 82) { return advance_pc(op_cmp(state, "lt")); }
+        if (op == 83) { return advance_pc(op_cmp(state, "le")); }
+        if (op == 84) { return advance_pc(op_cmp(state, "gt")); }
+        if (op == 85) { return advance_pc(op_cmp(state, "ge")); }
+
+        if (op == 96) {
+            let top = stack_peek(state);
+            return advance_pc(stack_push(state, top));
+        }
+        if (op == 97) {
+            let popped = stack_pop(state);
+            return advance_pc(popped.get(1));
+        }
+        if (op == 98) {
+            let p1 = stack_pop(state);
+            let a  = p1.get(0); let st1 = p1.get(1);
+            let p2 = stack_pop(st1);
+            let b  = p2.get(0); let st2 = p2.get(1);
+            let st3 = stack_push(st2, a);
+            return advance_pc(stack_push(st3, b));
+        }
+
+        if (op == 112) { return op_call(state, operand, module); }
+        if (op == 113) { return op_ret(state); }
+
+        if (op == 128) { return advance_pc(op_struct_new(state, operand)); }
+        if (op == 129) { return advance_pc(op_field_get(state, operand)); }
+        if (op == 130) { return advance_pc(op_field_set(state, operand)); }
+        if (op == 131) { return advance_pc(op_enum_tag(state, operand)); }
+
+        if (op == 144) { return op_match_eq(state, operand); }
+        if (op == 145) { return advance_pc(op_enum_get_tag(state)); }
+        if (op == 146) { return advance_pc(op_enum_get_data(state)); }
+
+        if (op == 160) { return advance_pc(op_make_closure(state, operand, module)); }
+        if (op == 161) { return op_call_closure(state, operand, module); }
+
+        if (op == 176) { return advance_pc(op_array_new(state, operand)); }
+        if (op == 177) { return advance_pc(op_array_get(state)); }
+        if (op == 178) { return advance_pc(op_array_set(state)); }
+        if (op == 179) { return advance_pc(op_collection_len(state)); }
+        if (op == 180) { return advance_pc(op_map_new(state, operand)); }
+        if (op == 181) { return advance_pc(op_map_get(state)); }
+        if (op == 182) { return advance_pc(op_map_set(state)); }
+        if (op == 183) { return advance_pc(op_method_dispatch(state, operand, module, strings)); }
+
+        if (op == 192) { return advance_pc(op_wrap_ok(state)); }
+        if (op == 193) { return advance_pc(op_wrap_err(state)); }
+        if (op == 194) { return advance_pc(stack_push(state, make_none())); }
+        if (op == 195) { return op_try_unwrap(state); }
+        if (op == 196) { return op_try_begin(state, operand); }
+        if (op == 197) { return op_try_end(state, operand); }
+
+        if (op == 184) {
+            let p1 = stack_pop(state);
+            let b  = p1.get(0); let st1 = p1.get(1);
+            let p2 = stack_pop(st1);
+            let a  = p2.get(0); let st2 = p2.get(1);
+            return advance_pc(stack_push(st2, make_i64(val_as_int(a) + val_as_int(b))));
+        }
+        if (op == 185) {
+            let p1 = stack_pop(state);
+            let b  = p1.get(0); let st1 = p1.get(1);
+            let p2 = stack_pop(st1);
+            let a  = p2.get(0); let st2 = p2.get(1);
+            return advance_pc(stack_push(st2, make_i64(val_as_int(a) - val_as_int(b))));
+        }
+        if (op == 186) {
+            let p1 = stack_pop(state);
+            let b  = p1.get(0); let st1 = p1.get(1);
+            let p2 = stack_pop(st1);
+            let a  = p2.get(0); let st2 = p2.get(1);
+            return advance_pc(stack_push(st2, make_i64(val_as_int(a) * val_as_int(b))));
+        }
+
+        return advance_pc(state);
+    }
+
+    fn reverse_array(arr, n) {
+        if (n == 0) { return []; }
+        let result = [];
+        let i = MC_01.SUB8(n, 1);
+        loop(n) as _ra {
+            if (i < 0) { return result; }
+            let result = result.push(arr.get(i));
+            let i = MC_01.SUB8(i, 1);
+        }
+        return result;
+    }
+
+    fn op_cmp(state, kind) {
+        let p1 = stack_pop(state);
+        let b  = p1.get(0); let st1 = p1.get(1);
+        let p2 = stack_pop(st1);
+        let a  = p2.get(0); let st2 = p2.get(1);
+        let ai = val_as_int(a);
+        let bi = val_as_int(b);
+        let as_str_a = val_as_str(a);
+        let as_str_b = val_as_str(b);
+        let result = 0;
+        if (kind == "eq") {
+            if (val_type(a) == "str") {
+                if (as_str_a == as_str_b) { let result = 1; }
+            }
+            if (val_type(a) != "str") {
+                if (ai == bi) { let result = 1; }
+            }
+        }
+        if (kind == "ne") {
+            if (val_type(a) == "str") {
+                if (as_str_a == as_str_b) { let result = 0; } else { let result = 1; }
+            }
+            if (val_type(a) != "str") {
+                if (ai == bi) { let result = 0; } else { let result = 1; }
+            }
+        }
+        if (kind == "lt") { if (ai < bi)  { let result = 1; } }
+        if (kind == "le") { if (ai <= bi) { let result = 1; } }
+        if (kind == "gt") { if (ai > bi)  { let result = 1; } }
+        if (kind == "ge") { if (ai >= bi) { let result = 1; } }
+        return stack_push(st2, make_bool(result));
+    }
+
+    fn op_call(state, func_offset, module) {
+        let frame = #{
+            "return_pc":  MC_00.ADD8(state.get("pc"), 1),
+            "saved_vars": state.get("vars")
+        };
+        let call_stack = state.get("call_stack").push(frame);
+        let new_vars = #{};
+        return state
+            .set("call_stack", call_stack)
+            .set("vars", new_vars)
+            .set("pc", func_offset);
+    }
+
+    fn op_ret(state) {
+        let call_stack = state.get("call_stack");
+        let n = call_stack.len();
+        if (n == 0) {
+            let ret_val = stack_peek(state);
+            let output = state.get("output").push(ret_val);
+            return state.set("halted", 1).set("output", output);
+        }
+        let frame = call_stack.get(MC_01.SUB8(n, 1));
+        let new_call_stack = stack_drop_last(call_stack, n);
+        return state
+            .set("call_stack", new_call_stack)
+            .set("vars", frame.get("saved_vars"))
+            .set("pc", frame.get("return_pc"));
+    }
+
+    fn op_struct_new(state, operand) {
+        let name        = operand.get(0);
+        let field_count = operand.get(1);
+        let fields = #{};
+        let i = 0;
+        let st = state;
+        loop(field_count) as _sn {
+            if (i >= field_count) { return stack_push(st, #{"type": "struct", "val": #{"name": name, "fields": fields}}); }
+            let popped = stack_pop(st);
+            let v = popped.get(0);
+            let st = popped.get(1);
+            let fields = fields.set(int_to_str(i), v);
+            let i = MC_00.ADD8(i, 1);
+        }
+        return stack_push(st, #{"type": "struct", "val": #{"name": name, "fields": fields}});
+    }
+
+    fn op_field_get(state, operand) {
+        let popped = stack_pop(state);
+        let s  = popped.get(0);
+        let st = popped.get(1);
+        let field_name = operand.get(1);
+        let fields = val_get(s).get("fields");
+        return stack_push(st, fields.get(field_name));
+    }
+
+    fn op_field_set(state, operand) {
+        let p3 = stack_pop(state);
+        let v  = p3.get(0); let st1 = p3.get(1);
+        let p2 = stack_pop(st1);
+        let s  = p2.get(0); let st2 = p2.get(1);
+        let field_name  = operand.get(1);
+        let inner       = val_get(s);
+        let new_fields  = inner.get("fields").set(field_name, v);
+        let new_struct  = #{"type": "struct", "val": #{"name": inner.get("name"), "fields": new_fields}};
+        return stack_push(st2, new_struct);
+    }
+
+    fn op_enum_tag(state, operand) {
+        let popped = stack_pop(state);
+        let data = popped.get(0);
+        let st   = popped.get(1);
+        let enum_name    = operand.get(0);
+        let variant_name = operand.get(1);
+        let v = #{"type": "enum", "val": #{"enum": enum_name, "variant": variant_name, "data": data}};
+        return stack_push(st, v);
+    }
+
+    fn op_match_eq(state, offset) {
+        let p2      = stack_pop(state);
+        let pattern = p2.get(0); let st1 = p2.get(1);
+        let p1      = stack_pop(st1);
+        let subject = p1.get(0); let st2 = p1.get(1);
+        let matched = 0;
+        if (val_type(subject) == "str") {
+            if (val_as_str(subject) == val_as_str(pattern)) { let matched = 1; }
+        }
+        if (val_type(subject) != "str") {
+            if (val_as_int(subject) == val_as_int(pattern)) { let matched = 1; }
+        }
+        if (matched == 0) {
+            let new_pc = MC_00.ADD8(st2.get("pc"), offset);
+            return st2.set("pc", new_pc);
+        }
+        return advance_pc(st2);
+    }
+
+    fn op_enum_get_tag(state) {
+        let p  = stack_pop(state);
+        let v  = p.get(0); let st = p.get(1);
+        let tag = val_get(v).get("variant");
+        return stack_push(st, make_str(tag));
+    }
+
+    fn op_enum_get_data(state) {
+        let p    = stack_pop(state);
+        let v    = p.get(0); let st = p.get(1);
+        let data = val_get(v).get("data");
+        return stack_push(st, data);
+    }
+
+    fn op_make_closure(state, encoded, module) {
+        let cl = #{"type": "closure", "val": #{"pc": encoded, "params": 0, "captures": []}};
+        return stack_push(state, cl);
+    }
+
+    fn op_call_closure(state, arg_count, module) {
+        let args = [];
+        let st   = state;
+        let i    = 0;
+        loop(arg_count) as _cc {
+            if (i >= arg_count) {
+                let p_cl = stack_pop(st);
+                let cl   = p_cl.get(0);
+                let st2  = p_cl.get(1);
+                let cl_val  = val_get(cl);
+                let func_pc = cl_val.get("pc");
+                let frame = #{
+                    "return_pc":  MC_00.ADD8(st2.get("pc"), 1),
+                    "saved_vars": st2.get("vars")
+                };
+                let call_stack = st2.get("call_stack").push(frame);
+                let new_vars = #{};
+                let j = 0;
+                let rev_args = reverse_array(args, args.len());
+                let nargs = rev_args.len();
+                loop(nargs) as _cv {
+                    if (j >= nargs) {
+                        return st2
+                            .set("call_stack", call_stack)
+                            .set("vars", new_vars)
+                            .set("pc", func_pc);
+                    }
+                    let new_vars = new_vars.set(int_to_str(j), rev_args.get(j));
+                    let j = MC_00.ADD8(j, 1);
+                }
+                return st2
+                    .set("call_stack", call_stack)
+                    .set("vars", new_vars)
+                    .set("pc", func_pc);
+            }
+            let popped = stack_pop(st);
+            let args   = args.push(popped.get(0));
+            let st     = popped.get(1);
+            let i      = MC_00.ADD8(i, 1);
+        }
+        return st;
+    }
+
+    fn op_array_new(state, element_count) {
+        let elems = [];
+        let st    = state;
+        let i     = 0;
+        loop(element_count) as _an {
+            if (i >= element_count) {
+                let rev = reverse_array(elems, elems.len());
+                return stack_push(st, #{"type": "array", "val": rev});
+            }
+            let p = stack_pop(st);
+            let elems = elems.push(p.get(0));
+            let st    = p.get(1);
+            let i     = MC_00.ADD8(i, 1);
+        }
+        let rev = reverse_array(elems, elems.len());
+        return stack_push(st, #{"type": "array", "val": rev});
+    }
+
+    fn op_array_get(state) {
+        let pi  = stack_pop(state);
+        let idx = pi.get(0); let st1 = pi.get(1);
+        let pa  = stack_pop(st1);
+        let arr = pa.get(0); let st2 = pa.get(1);
+        let i   = val_as_int(idx);
+        let arr_val = val_get(arr);
+        return stack_push(st2, arr_val.get(i));
+    }
+
+    fn op_array_set(state) {
+        let pv  = stack_pop(state);
+        let v   = pv.get(0); let st1 = pv.get(1);
+        let pi  = stack_pop(st1);
+        let idx = pi.get(0); let st2 = pi.get(1);
+        let pa  = stack_pop(st2);
+        let arr = pa.get(0); let st3 = pa.get(1);
+        let i   = val_as_int(idx);
+        let new_arr = val_get(arr).set(i, v);
+        return stack_push(st3, #{"type": "array", "val": new_arr});
+    }
+
+    fn op_collection_len(state) {
+        let p   = stack_pop(state);
+        let col = p.get(0); let st = p.get(1);
+        let t   = val_type(col);
+        let n   = 0;
+        if (t == "array") { let n = val_get(col).len(); }
+        if (t == "str")   { let n = MC_43.LEN(val_as_str(col)); }
+        return stack_push(st, make_i64(n));
+    }
+
+    fn op_map_new(state, pair_count) {
+        let m  = #{};
+        let st = state;
+        let i  = 0;
+        loop(pair_count) as _mn {
+            if (i >= pair_count) { return stack_push(st, #{"type": "map", "val": m}); }
+            let pv = stack_pop(st);
+            let v  = pv.get(0); let st1 = pv.get(1);
+            let pk = stack_pop(st1);
+            let k  = pk.get(0); let st  = pk.get(1);
+            let key_str = val_as_str(k);
+            let m   = m.set(key_str, v);
+            let i   = MC_00.ADD8(i, 1);
+        }
+        return stack_push(st, #{"type": "map", "val": m});
+    }
+
+    fn op_map_get(state) {
+        let pk = stack_pop(state);
+        let k  = pk.get(0); let st1 = pk.get(1);
+        let pm = stack_pop(st1);
+        let m  = pm.get(0); let st2 = pm.get(1);
+        let key = val_as_str(k);
+        let val = val_get(m).get(key);
+        if (val == 0) { return stack_push(st2, make_none()); }
+        return stack_push(st2, val);
+    }
+
+    fn op_map_set(state) {
+        let pv = stack_pop(state);
+        let v  = pv.get(0); let st1 = pv.get(1);
+        let pk = stack_pop(st1);
+        let k  = pk.get(0); let st2 = pk.get(1);
+        let pm = stack_pop(st2);
+        let m  = pm.get(0); let st3 = pm.get(1);
+        let key    = val_as_str(k);
+        let new_m  = val_get(m).set(key, v);
+        return stack_push(st3, #{"type": "map", "val": new_m});
+    }
+
+    fn op_method_dispatch(state, method_idx, module, strings) {
+        let method_name = strings.get(method_idx);
+        let p_arg = stack_pop(state);
+        let arg   = p_arg.get(0); let st1 = p_arg.get(1);
+        let p_obj = stack_pop(st1);
+        let obj   = p_obj.get(0); let st2 = p_obj.get(1);
+        let t = val_type(obj);
+        if (method_name == "push") {
+            let arr = val_get(obj).push(arg);
+            return stack_push(st2, #{"type": "array", "val": arr});
+        }
+        if (method_name == "len") {
+            let n = 0;
+            if (t == "array") { let n = val_get(obj).len(); }
+            if (t == "str")   { let n = MC_43.LEN(val_as_str(obj)); }
+            return stack_push(st2, make_i64(n));
+        }
+        if (method_name == "get") {
+            let i = val_as_int(arg);
+            let arr = val_get(obj);
+            return stack_push(st2, arr.get(i));
+        }
+        if (method_name == "set") {
+            let p_idx = stack_pop(st2);
+            let idx = p_idx.get(0); let st3 = p_idx.get(1);
+            let i = val_as_int(idx);
+            let new_val = val_get(obj).set(i, arg);
+            return stack_push(st3, #{"type": t, "val": new_val});
+        }
+        if (method_name == "starts_with") {
+            let s   = val_as_str(obj);
+            let pfx = val_as_str(arg);
+            let plen = MC_43.LEN(pfx);
+            if (plen > MC_43.LEN(s)) { return stack_push(st2, make_bool(0)); }
+            let cand = MC_42.SUBSTR(s, 0, plen);
+            if (cand == pfx) { return stack_push(st2, make_bool(1)); }
+            return stack_push(st2, make_bool(0));
+        }
+        if (method_name == "char_at") {
+            let s = val_as_str(obj);
+            let i = val_as_int(arg);
+            return stack_push(st2, make_str(MC_42.SUBSTR(s, i, 1)));
+        }
+        if (method_name == "contains") {
+            let s   = val_as_str(obj);
+            let sub = val_as_str(arg);
+            let matched = MC_47.MATCH(s, sub);
+            return stack_push(st2, make_bool(matched));
+        }
+        return stack_push(st2, make_unit());
+    }
+
+    fn op_wrap_ok(state) {
+        let p = stack_pop(state);
+        return stack_push(p.get(1), make_ok(p.get(0)));
+    }
+
+    fn op_wrap_err(state) {
+        let p = stack_pop(state);
+        return stack_push(p.get(1), make_err(p.get(0)));
+    }
+
+    fn op_try_unwrap(state) {
+        let p = stack_pop(state);
+        let v  = p.get(0); let st = p.get(1);
+        let t  = val_type(v);
+        if (t == "ok") {
+            return advance_pc(stack_push(st, val_get(v)));
+        }
+        let handler_stack = st.get("handler_stack");
+        let hn = handler_stack.len();
+        if (hn == 0) {
+            return st.set("halted", 1).set("output", [make_err(v)]);
+        }
+        let handler_pc = handler_stack.get(MC_01.SUB8(hn, 1));
+        let new_hs     = stack_drop_last(handler_stack, hn);
+        return stack_push(st.set("handler_stack", new_hs), v)
+            .set("pc", handler_pc);
+    }
+
+    fn op_try_begin(state, handler_offset) {
+        let handler_pc    = MC_00.ADD8(state.get("pc"), handler_offset);
+        let handler_stack = state.get("handler_stack").push(handler_pc);
+        return advance_pc(state.set("handler_stack", handler_stack));
+    }
+
+    fn op_try_end(state, skip_offset) {
+        let handler_stack = state.get("handler_stack");
+        let hn = handler_stack.len();
+        let new_hs = stack_drop_last(handler_stack, hn);
+        let new_pc = MC_00.ADD8(state.get("pc"), skip_offset);
+        return state.set("handler_stack", new_hs).set("pc", new_pc);
+    }
+
+    // === MAIN ENTRY ===
+    fn find_output_var_slot(module) {
+        let output_var = module.get("output_var");
+        if (MC_43.LEN(output_var) == 0) { return 0; }
+        let var_str = module.get("var_names_str");
+        if (MC_43.LEN(var_str) == 0) { return 0; }
+        // Parse comma-separated var names to find the slot index
+        let slot = 0;
+        let pos = 0;
+        let vlen = MC_43.LEN(var_str);
+        let found = 0;
+        loop(100) as _fov {
+            if (pos >= vlen) { return slot; }
+            if (found == 1) { return slot; }
+            // Find next comma or end
+            let end = pos;
+            let done = 0;
+            loop(200) as _fc {
+                if (done == 0) {
+                    if (end >= vlen) {
+                        let done = 1;
+                    } else {
+                        let ch = var_str.char_at(end);
+                        if (ch == ",") {
+                            let done = 1;
+                        } else {
+                            let end = MC_00.ADD8(end, 1);
+                        }
+                    }
+                }
+            }
+            let name = MC_42.SUBSTR(var_str, pos, MC_01.SUB8(end, pos));
+            if (name == output_var) {
+                let found = 1;
+            }
+            if (found == 0) {
+                let slot = MC_00.ADD8(slot, 1);
+            }
+            let pos = MC_00.ADD8(end, 1);
+        }
+        return slot;
+    }
+
+    // Pre-initialize function variable slots with closures (mirrors Rust interpreter.rs:134-166)
+    fn try_resolve_fn(functions, name) {
+        let fpc = functions.get(name);
+        if (fpc != 0) { return fpc; }
+        let fn_name = MC_40.CONCAT("fn::", name);
+        let fpc2 = functions.get(fn_name);
+        if (fpc2 != 0) { return fpc2; }
+        // Try stripping fn_ prefix: var "fn_foo" -> function "fn::foo"
+        let nlen = MC_43.LEN(name);
+        if (nlen > 3) {
+            let pfx = MC_42.SUBSTR(name, 0, 3);
+            if (pfx == "fn_") {
+                let base = MC_42.SUBSTR(name, 3, MC_01.SUB8(nlen, 3));
+                let fn_name2 = MC_40.CONCAT("fn::", base);
+                return functions.get(fn_name2);
+            }
+        }
+        return 0;
+    }
+
+    fn maybe_init_fn_slot(vars, slot, fpc) {
+        if (fpc == 0) { return vars; }
+        let slot_key = int_to_str(slot);
+        let cl = #{"type": "closure", "val": #{"pc": fpc, "params": 0, "captures": []}};
+        return vars.set(slot_key, cl);
+    }
+
+    fn find_comma_or_end(s, pos, len) {
+        let i = pos;
+        loop(200) as _fce {
+            if (i >= len) { return len; }
+            let ch = s.char_at(i);
+            if (ch == ",") { return i; }
+            let i = MC_00.ADD8(i, 1);
+        }
+        return len;
+    }
+
+    fn init_function_slots(state, module) {
+        let functions = module.get("functions");
+        let var_str = module.get("var_names_str");
+        if (MC_43.LEN(var_str) == 0) { return state; }
+        let vars = state.get("vars");
+        let slot = 0;
+        let pos = 0;
+        let vlen = MC_43.LEN(var_str);
+        loop(500) as _ifs {
+            if (pos >= vlen) {
+                return state.set("vars", vars);
+            }
+            let end = find_comma_or_end(var_str, pos, vlen);
+            let name = MC_42.SUBSTR(var_str, pos, MC_01.SUB8(end, pos));
+            let fpc = try_resolve_fn(functions, name);
+            let vars = maybe_init_fn_slot(vars, slot, fpc);
+            let slot = MC_00.ADD8(slot, 1);
+            let pos = MC_00.ADD8(end, 1);
+        }
+        return state.set("vars", vars);
+    }
+
+    fn execute(bir_text) {
+        let module = parse_bir_module(bir_text);
+        let inputs = [];
+        let state  = init_state(module, inputs);
+        let state  = init_function_slots(state, module);
+        let instrs  = module.get("instructions");
+        let strings = module.get("string_table");
+        let limit   = 100000;
+        loop(limit) as _step {
+            let halted = state.get("halted");
+            if (halted == 1) {
+                let out = state.get("output");
+                if (out.len() > 0) {
+                    return format_output(out);
+                }
+                // No explicit OUTPUT instruction — check output_var from header
+                let slot = find_output_var_slot(module);
+                let vars = state.get("vars");
+                let slot_key = int_to_str(slot);
+                let val = vars.get(slot_key);
+                return format_value(val);
+            }
+            let pc    = state.get("pc");
+            let instr = instrs.get(pc);
+            let op    = instr.get(0);
+            let state = dispatch_op(op, instr, module, state, strings);
+        }
+        return "ERROR: execution limit exceeded";
+    }
+
+    fn format_output(output) {
+        let n = output.len();
+        if (n == 0) { return "()"; }
+        let last = output.get(MC_01.SUB8(n, 1));
+        return format_value(last);
+    }
+
+    fn format_value(v) {
+        let t = val_type(v);
+        if (t == "i64")  { return int_to_str(val_get(v)); }
+        if (t == "u8")   { return int_to_str(val_get(v)); }
+        if (t == "bool") {
+            let b = val_get(v);
+            if (b == 0) { return "false"; }
+            return "true";
+        }
+        if (t == "str")  { return val_get(v); }
+        if (t == "unit") { return "()"; }
+        if (t == "none") { return "none"; }
+        return "value";
+    }
+
+    let result = execute(bir_text);
+    OUTPUT result;
+}

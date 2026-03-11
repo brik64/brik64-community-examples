@@ -1,0 +1,47 @@
+PC pcd_parser {
+    enum NodeKind {
+        MonomerCall,
+        LetBinding,
+        IfStmt,
+        LoopStmt,
+        Output
+    }
+
+    struct AstNode {
+        kind: i64,
+        child_count: i64
+    }
+
+    fn parse_tokens(token_count) {
+        let nodes = [0, 1, 2];
+        nodes[0] = 3;
+
+        let map = #{0: 10, 1: 20};
+        let size = nodes.len();
+        let pushed = nodes.push(token_count);
+        let first = nodes[0];
+
+        let ok_count = Ok(size);
+        let strict_count = ok_count?;
+        let maybe_first = Some(first);
+        let no_node = None;
+
+        match token_count {
+            0 => {
+                let kind = NodeKind::Output;
+                let node = AstNode { kind: 4, child_count: 0 };
+                OUTPUT 0;
+            },
+            _ => {
+                let kind = NodeKind::MonomerCall;
+                let node = AstNode { kind: 0, child_count: MC_04.MOD8(token_count, 4) };
+                OUTPUT MC_03.DIV8(token_count, 3);
+            }
+        }
+
+        return MC_03.DIV8(token_count, 3);
+    }
+
+    let ast_count = parse_tokens(64);
+    OUTPUT ast_count;
+}

@@ -1,0 +1,219 @@
+PC bir_monomer_rt {
+
+    // === VALUE CONSTRUCTORS ===
+    fn make_i64(n)     { return #{"type": "i64",   "val": n}; }
+    fn make_u8(n)      { return #{"type": "u8",    "val": n}; }
+    fn make_bool(b)    { return #{"type": "bool",  "val": b}; }
+    fn make_str(s)     { return #{"type": "str",   "val": s}; }
+    fn make_unit()     { return #{"type": "unit",  "val": 0}; }
+    fn make_array(a)   { return #{"type": "array", "val": a}; }
+    fn make_map(m)     { return #{"type": "map",   "val": m}; }
+    fn make_ok(v)      { return #{"type": "ok",    "val": v}; }
+    fn make_err(v)     { return #{"type": "err",   "val": v}; }
+    fn make_none()     { return #{"type": "none",  "val": 0}; }
+
+    fn val_type(v)     { return v.get("type"); }
+    fn val_get(v)      { return v.get("val"); }
+
+    fn val_as_int(v) {
+        let t = val_type(v);
+        if (t == "i64")  { return val_get(v); }
+        if (t == "u8")   { return val_get(v); }
+        if (t == "bool") { return val_get(v); }
+        return 0;
+    }
+
+    fn val_as_str(v) {
+        let t = val_type(v);
+        if (t == "str") { return val_get(v); }
+        return "";
+    }
+
+    // === MAIN DISPATCHER ===
+    fn dispatch_monomer(id, args) {
+        if (id < 8)  { return dispatch_arithmetic(id, args); }
+        if (id < 16) { return dispatch_logic(id, args); }
+        if (id < 24) { return dispatch_memory(id, args); }
+        if (id < 32) { return dispatch_control(id, args); }
+        if (id < 40) { return dispatch_io(id, args); }
+        if (id < 48) { return dispatch_strings(id, args); }
+        if (id < 56) { return dispatch_crypto(id, args); }
+        return dispatch_system(id, args);
+    }
+
+    // === ARITHMETIC (MC_00..MC_07) ===
+    fn dispatch_arithmetic(sub_id, args) {
+        let a = val_as_int(args.get(0));
+        let b = 0;
+        if (args.len() > 1) { let b = val_as_int(args.get(1)); }
+
+        if (sub_id == 0) { return make_i64(MC_00.ADD8(a, b)); }
+        if (sub_id == 1) { return make_i64(MC_01.SUB8(a, b)); }
+        if (sub_id == 2) { return make_i64(MC_02.MUL8(a, b)); }
+        if (sub_id == 3) {
+            let result = MC_03.DIV8(a, b);
+            let q = result.get(0);
+            let r = result.get(1);
+            return make_array([make_i64(q), make_i64(r)]);
+        }
+        if (sub_id == 4) { return make_i64(MC_04.INC(a)); }
+        if (sub_id == 5) { return make_i64(MC_05.DEC(a)); }
+        if (sub_id == 6) { return make_i64(MC_06.ABS(a)); }
+        if (sub_id == 7) {
+            let min_v = 0;
+            let max_v = 255;
+            if (args.len() > 1) { let min_v = val_as_int(args.get(1)); }
+            if (args.len() > 2) { let max_v = val_as_int(args.get(2)); }
+            return make_i64(MC_07.CLAMP(a, min_v, max_v));
+        }
+        return make_unit();
+    }
+
+    // === LOGIC (MC_08..MC_15) ===
+    fn dispatch_logic(sub_id, args) {
+        let a = val_as_int(args.get(0));
+        let b = 0;
+        if (args.len() > 1) { let b = val_as_int(args.get(1)); }
+        let local_id = MC_01.SUB8(sub_id, 8);
+
+        if (local_id == 0) { return make_i64(MC_08.AND8(a, b)); }
+        if (local_id == 1) { return make_i64(MC_09.OR8(a, b)); }
+        if (local_id == 2) { return make_i64(MC_10.XOR8(a, b)); }
+        if (local_id == 3) { return make_i64(MC_11.NOT8(a)); }
+        if (local_id == 4) { return make_i64(MC_12.SHL(a, b)); }
+        if (local_id == 5) { return make_i64(MC_13.SHR(a, b)); }
+        if (local_id == 6) { return make_i64(MC_14.ROL(a, b)); }
+        if (local_id == 7) { return make_i64(MC_15.ROR(a, b)); }
+        return make_unit();
+    }
+
+    // === MEMORY (MC_16..MC_23) — emulated via PCD arrays ===
+    fn dispatch_memory(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 16);
+        if (local_id == 0) {
+            let mem = val_get(args.get(0));
+            let idx = val_as_int(args.get(1));
+            return mem.get(idx);
+        }
+        if (local_id == 1) {
+            let value = args.get(0);
+            let mem   = val_get(args.get(1));
+            let idx   = val_as_int(args.get(2));
+            return make_array(mem.set(idx, value));
+        }
+        if (local_id == 2) {
+            let arr = val_get(args.get(0));
+            let v   = args.get(1);
+            return make_array(arr.push(v));
+        }
+        if (local_id == 3) {
+            let arr = val_get(args.get(0));
+            let len = arr.len();
+            if (len == 0) { return make_array([make_unit(), make_array([])]); }
+            let last = arr.get(MC_01.SUB8(len, 1));
+            let new_arr = [];
+            let i = 0;
+            let limit = MC_01.SUB8(len, 1);
+            loop(len) as _pi {
+                if (i >= limit) { return make_array([last, make_array(new_arr)]); }
+                let new_arr = new_arr.push(arr.get(i));
+                let i = MC_00.ADD8(i, 1);
+            }
+            return make_array([last, make_array(new_arr)]);
+        }
+        if (local_id == 4) {
+            let arr = val_get(args.get(0));
+            let len = arr.len();
+            if (len == 0) { return make_unit(); }
+            return arr.get(MC_01.SUB8(len, 1));
+        }
+        if (local_id == 5) { return make_array([args.get(1), args.get(0)]); }
+        if (local_id == 6) { return make_array([args.get(0), args.get(0)]); }
+        if (local_id == 7) { return make_unit(); }
+        return make_unit();
+    }
+
+    // === CONTROL (MC_24..MC_31) — stubs ===
+    fn dispatch_control(sub_id, args) {
+        return make_unit();
+    }
+
+    // === I/O (MC_32..MC_39) ===
+    fn dispatch_io(sub_id, args) {
+        let local_id = MC_01.SUB8(sub_id, 32);
+        if (local_id == 0) { return make_str(""); }
+        if (local_id == 1) { return make_unit(); }
+        return make_unit();
+    }
+
+    // === STRINGS (MC_40..MC_47) ===
+    fn dispatch_strings(sub_id, args) {
+        if (sub_id == 40) {
+            let a = val_as_str(args.get(0));
+            let b = val_as_str(args.get(1));
+            return make_str(MC_40.CONCAT(a, b));
+        }
+        if (sub_id == 41) {
+            let s   = val_as_str(args.get(0));
+            let sep = val_as_str(args.get(1));
+            let parts = MC_41.SPLIT(s, sep);
+            let result = [];
+            let i = 0;
+            let n = parts.len();
+            loop(n) as _si {
+                if (i >= n) { return make_array(result); }
+                let result = result.push(make_str(parts.get(i)));
+                let i = MC_00.ADD8(i, 1);
+            }
+            return make_array(result);
+        }
+        if (sub_id == 42) {
+            let s     = val_as_str(args.get(0));
+            let start = val_as_int(args.get(1));
+            let len   = val_as_int(args.get(2));
+            return make_str(MC_42.SUBSTR(s, start, len));
+        }
+        if (sub_id == 43) {
+            let s = val_as_str(args.get(0));
+            return make_i64(MC_43.LEN(s));
+        }
+        if (sub_id == 44) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_44.UPPER(s));
+        }
+        if (sub_id == 45) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_45.LOWER(s));
+        }
+        if (sub_id == 46) {
+            let s = val_as_str(args.get(0));
+            return make_str(MC_46.TRIM(s));
+        }
+        if (sub_id == 47) {
+            let s       = val_as_str(args.get(0));
+            let pattern = val_as_str(args.get(1));
+            let matched = MC_47.MATCH(s, pattern);
+            return make_bool(matched);
+        }
+        return make_unit();
+    }
+
+    // === CRYPTO (MC_48..MC_55) — safe stubs ===
+    fn dispatch_crypto(sub_id, args) {
+        if (sub_id == 48) {
+            return make_str("0000000000000000000000000000000000000000000000000000000000000000");
+        }
+        return make_unit();
+    }
+
+    // === SYSTEM (MC_56..MC_63) — safe stubs ===
+    fn dispatch_system(sub_id, args) {
+        if (sub_id == 56) { return make_i64(0); }
+        if (sub_id == 57) { return make_i64(0); }
+        if (sub_id == 58) { return make_i64(0); }
+        return make_unit();
+    }
+
+    let result = dispatch_monomer(id, args);
+    OUTPUT result;
+}

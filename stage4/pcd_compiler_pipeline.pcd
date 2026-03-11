@@ -1,0 +1,67 @@
+PC pcd_compiler_pipeline {
+    struct PipelineAst {
+        kind: string,
+        name: string,
+        call: string,
+        arg: string
+    }
+
+    fn lexer(source) {
+        let tokens = [];
+        let n = MC_43.LEN(source);
+
+        if (n > 0) {
+            let _p0 = tokens.push("PC");
+            let _p1 = tokens.push("demo");
+            let _p2 = tokens.push("OUTPUT");
+            let _p3 = tokens.push("value");
+        }
+
+        let _eof = tokens.push("EOF");
+        return tokens;
+    }
+
+    fn parser(tokens) {
+        let ast = PipelineAst {
+            kind: "Program",
+            name: "demo",
+            call: "OUTPUT",
+            arg: "value"
+        };
+
+        if (tokens[0] == "PC") {
+            let ast = PipelineAst {
+                kind: "Program",
+                name: tokens[1],
+                call: tokens[2],
+                arg: tokens[3]
+            };
+        }
+
+        return ast;
+    }
+
+    fn emitter(ast) {
+        let code = "PC ";
+        let code = MC_40.CONCAT(code, ast.name);
+        let code = MC_40.CONCAT(code, " { ");
+        let code = MC_40.CONCAT(code, ast.call);
+        let code = MC_40.CONCAT(code, " ");
+        let code = MC_40.CONCAT(code, ast.arg);
+        let code = MC_40.CONCAT(code, "; }");
+        return code;
+    }
+
+    fn compile(source) {
+        let tokens = lexer(source);
+        let ast = parser(tokens);
+        let generated = emitter(ast);
+        return generated;
+    }
+
+    let source = "PC demo { OUTPUT value; }";
+    let generated = compile(source);
+
+    OUTPUT generated;
+    return generated;
+}

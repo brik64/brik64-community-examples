@@ -1,0 +1,39 @@
+# Logic Gates Parallel Example
+# Demonstrates parallel composition: (AND8 ∥ OR8 ∥ XOR8)
+# Input: two u8 values (x, y)
+# Output: three u8 values (x AND y, x OR y, x XOR y)
+
+name: logic_gates_parallel
+description: "Parallel composition of logic monomers: AND8 ∥ OR8 ∥ XOR8"
+version: "1.0.0"
+
+io:
+  inputs:
+    - name: x
+      type: U8
+      description: "First operand"
+    - name: y
+      type: U8
+      description: "Second operand"
+  outputs:
+    - name: result_and
+      type: U8
+      description: "x AND y"
+    - name: result_or
+      type: U8
+      description: "x OR y"
+    - name: result_xor
+      type: U8
+      description: "x XOR y"
+
+# Execution limits for parallel execution
+limits:
+  max_iterations_per_loop: 100
+  max_polymer_depth: 5
+  max_monomers_per_polymer: 10
+  max_parallel_branches: 8
+
+# Energy budgets (parallel adds energy additively)
+energy_budgets:
+  total_etc_budget: 300
+  max_etc_per_monomer: 50

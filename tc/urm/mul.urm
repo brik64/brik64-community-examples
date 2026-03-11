@@ -1,0 +1,15 @@
+# URM multiply: R0 := R1 * R2
+# Registers: R0 result, R1 multiplicand, R2 multiplier,
+#            R3 outer counter, R4 inner counter
+
+1: Z(0)        # result = 0
+2: Z(3)        # outer = 0
+3: J(3,2,11)   # if outer == R2 goto HALT
+4: Z(4)        # inner = 0
+5: J(4,1,9)    # if inner == R1 goto outer_inc
+6: S(0)        # result++
+7: S(4)        # inner++
+8: J(4,4,5)    # unconditional jump to inner_check
+9: S(3)        # outer++
+10: J(3,3,3)   # unconditional jump to outer_check
+# HALT at pc = 11

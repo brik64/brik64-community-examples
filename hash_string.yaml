@@ -1,0 +1,33 @@
+# Cryptographic Hash Example
+# Demonstrates HASH monomer (MC_48) usage
+# Input: string data
+# Output: SHA-256 hash digest
+
+name: hash_string
+description: "Cryptographic hash of string using SHA-256"
+version: "1.0.0"
+
+io:
+  inputs:
+    - name: data
+      type: String
+      description: "Input string to hash"
+      constraints:
+        max_length: 1024
+  outputs:
+    - name: hash
+      type: Bytes
+      description: "32-byte SHA-256 hash"
+      constraints:
+        fixed_length: 32
+
+# Execution limits
+limits:
+  max_iterations_per_loop: 100
+  max_polymer_depth: 5
+  max_monomers_per_polymer: 10
+
+# Energy budgets for crypto operations
+energy_budgets:
+  total_etc_budget: 500
+  max_etc_per_monomer: 200

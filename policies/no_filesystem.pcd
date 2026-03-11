@@ -1,0 +1,14 @@
+// Policy: No Filesystem Access
+// Blocks programs that use MC_57 (READ) or MC_58 (WRITE)
+
+PC no_filesystem {
+    import "ast_inspect.pcd";
+
+    fn check(mc_ids) {
+        if (contains_monomer(mc_ids, 57) == 1) { return 1; }
+        if (contains_monomer(mc_ids, 58) == 1) { return 1; }
+        return 0;
+    }
+
+    OUTPUT 0;
+}

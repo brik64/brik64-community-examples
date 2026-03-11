@@ -1,0 +1,31 @@
+// string_builder.pcd
+// Demonstrates string operations with loops for Stage 1 codegen
+//
+// Pattern: Build output string by concatenating parts in a loop
+// This is the core pattern for code generation in PCD:
+// - Build Rust/JS/Python output line by line
+// - Concatenate monomer names from lookup table
+//
+// Monomers: MC_40 (CONCAT), MC_43 (LEN), MC_46 (TRIM)
+
+PC string_builder {
+    // Build a repeated string pattern
+    let result = "";
+    let separator = ", ";
+
+    // Build: "M0, M1, M2, M3, M4"
+    loop(5) {
+        let part = MC_40.CONCAT("M", "X");
+        if (result == "") {
+            let result = part;
+        } else {
+            let joined = MC_40.CONCAT(result, separator);
+            let result = MC_40.CONCAT(joined, part);
+        }
+    }
+
+    let length = MC_43.LEN(result);
+    OUTPUT result;
+    OUTPUT length;
+    return result;
+}

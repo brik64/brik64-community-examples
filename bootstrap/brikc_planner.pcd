@@ -1,0 +1,456 @@
+PC brikc_planner {
+    // AST -> IR planner.
+    // Input AST (parser format):
+    //   ["PC", name, [stmts]]
+    // Output:
+    //   ["plan", [instructions...]]
+
+    fn find_name(names, name) {
+        let idx = 0;
+        let found = 0;
+        let nlen = names.len();
+        loop(nlen) as i {
+            if (found == 0) {
+                if (names[i] == name) {
+                    let idx = i;
+                    let found = 1;
+                }
+            }
+        }
+        if (found == 0) {
+            return nlen;
+        }
+        return idx;
+    }
+
+    fn array_set(arr, idx, value) {
+        let out = [];
+        let alen = arr.len();
+        loop(alen) as i {
+            if (i == idx) {
+                let out = out.push(value);
+            } else {
+                let out = out.push(arr[i]);
+            }
+        }
+        return out;
+    }
+
+    fn copy_array(arr) {
+        let out = [];
+        let alen = arr.len();
+        loop(alen) as i {
+            let out = out.push(arr[i]);
+        }
+        return out;
+    }
+
+    fn int_to_str(n) {
+        if (n == 0) { return "0"; }
+        if (n == 1) { return "1"; }
+        if (n == 2) { return "2"; }
+        if (n == 3) { return "3"; }
+        if (n == 4) { return "4"; }
+        if (n == 5) { return "5"; }
+        if (n == 6) { return "6"; }
+        if (n == 7) { return "7"; }
+        if (n == 8) { return "8"; }
+        if (n == 9) { return "9"; }
+
+        let result = "";
+        let remaining = n;
+        let digits = [];
+        loop(20) as _i {
+            if (remaining > 0) {
+                let dv = MC_03.DIV8(remaining, 10);
+                let digit = dv[1];
+                let digits = digits.push(digit);
+                let remaining = dv[0];
+            }
+        }
+
+        let dlen = digits.len();
+        loop(dlen) as i {
+            let d = digits[MC_01.SUB8(MC_01.SUB8(dlen, 1), i)];
+            let ds = int_to_str(d);
+            let result = MC_40.CONCAT(result, ds);
+        }
+        return result;
+    }
+
+    fn make_ssa(name, version) {
+        return MC_40.CONCAT(MC_40.CONCAT(name, "_"), int_to_str(version));
+    }
+
+    fn fresh_tmp(tmp_counter) {
+        let name = MC_40.CONCAT("t_", int_to_str(tmp_counter));
+        return [name, MC_00.ADD8(tmp_counter, 1)];
+    }
+
+    fn fresh_label(prefix, label_counter) {
+        let name = MC_40.CONCAT(prefix, int_to_str(label_counter));
+        return [name, MC_00.ADD8(label_counter, 1)];
+    }
+
+    fn lookup_ssa(env_names, env_versions, name) {
+        let idx = find_name(env_names, name);
+        if (idx == env_names.len()) {
+            return make_ssa(name, 0);
+        }
+        return make_ssa(name, env_versions[idx]);
+    }
+
+    fn bind_param(env_names, env_versions, env_next, name) {
+        let idx = find_name(env_names, name);
+        if (idx == env_names.len()) {
+            let env_names = env_names.push(name);
+            let env_versions = env_versions.push(0);
+            let env_next = env_next.push(1);
+            return [env_names, env_versions, env_next, make_ssa(name, 0)];
+        }
+
+        let env_versions = array_set(env_versions, idx, 0);
+        let env_next = array_set(env_next, idx, 1);
+        return [env_names, env_versions, env_next, make_ssa(name, 0)];
+    }
+
+    fn bind_let(env_names, env_versions, env_next, name) {
+        let idx = find_name(env_names, name);
+        if (idx == env_names.len()) {
+            let env_names = env_names.push(name);
+            let env_versions = env_versions.push(0);
+            let env_next = env_next.push(1);
+            return [env_names, env_versions, env_next, make_ssa(name, 0)];
+        }
+
+        let version = env_next[idx];
+        let env_versions = array_set(env_versions, idx, version);
+        let env_next = array_set(env_next, idx, MC_00.ADD8(version, 1));
+        return [env_names, env_versions, env_next, make_ssa(name, version)];
+    }
+
+    fn plan_expr(expr, instrs, env_names, env_versions, env_next, tmp_counter, label_counter) {
+        let node = expr[0];
+
+        if (node == "num") {
+            let fr = fresh_tmp(tmp_counter);
+            let out = fr[0];
+            let tmp_counter = fr[1];
+            let instrs = instrs.push(["const", out, ["num", expr[1]]]);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (node == "str") {
+            let fr = fresh_tmp(tmp_counter);
+            let out = fr[0];
+            let tmp_counter = fr[1];
+            let instrs = instrs.push(["const", out, ["str", expr[1]]]);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (node == "ident") {
+            let out = lookup_ssa(env_names, env_versions, expr[1]);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (node == "binop") {
+            let op = expr[1];
+            let left = expr[2];
+            let right = expr[3];
+
+            let lr = plan_expr(left, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = lr[0];
+            let lvar = lr[1];
+            let env_names = lr[2];
+            let env_versions = lr[3];
+            let env_next = lr[4];
+            let tmp_counter = lr[5];
+            let label_counter = lr[6];
+
+            let rr = plan_expr(right, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = rr[0];
+            let rvar = rr[1];
+            let env_names = rr[2];
+            let env_versions = rr[3];
+            let env_next = rr[4];
+            let tmp_counter = rr[5];
+            let label_counter = rr[6];
+
+            let fr = fresh_tmp(tmp_counter);
+            let out = fr[0];
+            let tmp_counter = fr[1];
+            let instrs = instrs.push(["assign", out, ["binop", op, lvar, rvar]]);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (node == "monomer") {
+            let op_name = expr[1];
+            let args = expr[2];
+            let arg_vars = [];
+            let alen = args.len();
+            loop(alen) as i {
+                let er = plan_expr(args[i], instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+                let instrs = er[0];
+                let av = er[1];
+                let env_names = er[2];
+                let env_versions = er[3];
+                let env_next = er[4];
+                let tmp_counter = er[5];
+                let label_counter = er[6];
+                let arg_vars = arg_vars.push(av);
+            }
+
+            let fr = fresh_tmp(tmp_counter);
+            let out = fr[0];
+            let tmp_counter = fr[1];
+            let instrs = instrs.push(["assign", out, ["monomer", op_name, arg_vars]]);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (node == "call") {
+            let fn_name = expr[1];
+            let args = expr[2];
+            let call_args = [];
+            let alen = args.len();
+            loop(alen) as i {
+                let er = plan_expr(args[i], instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+                let instrs = er[0];
+                let av = er[1];
+                let env_names = er[2];
+                let env_versions = er[3];
+                let env_next = er[4];
+                let tmp_counter = er[5];
+                let label_counter = er[6];
+                let call_args = call_args.push(av);
+            }
+
+            let fr = fresh_tmp(tmp_counter);
+            let out = fr[0];
+            let tmp_counter = fr[1];
+            let call_instr = ["call", out, fn_name];
+            let clen = call_args.len();
+            loop(clen) as i {
+                let call_instr = call_instr.push(call_args[i]);
+            }
+            let instrs = instrs.push(call_instr);
+            return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        // Fallback unknown expression: emit null const temp.
+        let fr = fresh_tmp(tmp_counter);
+        let out = fr[0];
+        let tmp_counter = fr[1];
+        let instrs = instrs.push(["const", out, ["unknown", node]]);
+        return [instrs, out, env_names, env_versions, env_next, tmp_counter, label_counter];
+    }
+
+    fn plan_stmt_list(stmts, instrs, env_names, env_versions, env_next, tmp_counter, label_counter) {
+        let slen = stmts.len();
+        loop(slen) as i {
+            let sr = plan_stmt(stmts[i], instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = sr[0];
+            let env_names = sr[1];
+            let env_versions = sr[2];
+            let env_next = sr[3];
+            let tmp_counter = sr[4];
+            let label_counter = sr[5];
+        }
+        return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+    }
+
+    fn plan_fn(stmt, instrs, tmp_counter, label_counter) {
+        let fn_name = stmt[1];
+        let params = stmt[2];
+        let body = stmt[3];
+
+        let entry = MC_40.CONCAT("fn_", fn_name);
+        let exit = MC_40.CONCAT(entry, "_end");
+
+        let instrs = instrs.push(["label", entry]);
+
+        let env_names = [];
+        let env_versions = [];
+        let env_next = [];
+
+        let plen = params.len();
+        loop(plen) as i {
+            let br = bind_param(env_names, env_versions, env_next, params[i]);
+            let env_names = br[0];
+            let env_versions = br[1];
+            let env_next = br[2];
+            let pssa = br[3];
+            let instrs = instrs.push(["param", pssa, params[i]]);
+        }
+
+        let body_r = plan_stmt_list(body, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+        let instrs = body_r[0];
+        let tmp_counter = body_r[4];
+        let label_counter = body_r[5];
+
+        let instrs = instrs.push(["label", exit]);
+        let instrs = instrs.push(["end_fn", fn_name]);
+
+        return [instrs, tmp_counter, label_counter];
+    }
+
+    fn plan_stmt(stmt, instrs, env_names, env_versions, env_next, tmp_counter, label_counter) {
+        let kind = stmt[0];
+
+        if (kind == "fn") {
+            let fr = plan_fn(stmt, instrs, tmp_counter, label_counter);
+            let instrs = fr[0];
+            let tmp_counter = fr[1];
+            let label_counter = fr[2];
+            return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (kind == "let") {
+            let name = stmt[1];
+            let expr = stmt[2];
+
+            let er = plan_expr(expr, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = er[0];
+            let value_var = er[1];
+            let env_names = er[2];
+            let env_versions = er[3];
+            let env_next = er[4];
+            let tmp_counter = er[5];
+            let label_counter = er[6];
+
+            let br = bind_let(env_names, env_versions, env_next, name);
+            let env_names = br[0];
+            let env_versions = br[1];
+            let env_next = br[2];
+            let ssa = br[3];
+
+            let instrs = instrs.push(["assign", ssa, value_var]);
+            return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (kind == "return") {
+            let er = plan_expr(stmt[1], instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = er[0];
+            let out = er[1];
+            let env_names = er[2];
+            let env_versions = er[3];
+            let env_next = er[4];
+            let tmp_counter = er[5];
+            let label_counter = er[6];
+
+            let instrs = instrs.push(["return", out]);
+            return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (kind == "if") {
+            let cond_expr = stmt[1];
+            let then_body = stmt[2];
+            let else_body = stmt[3];
+
+            let er = plan_expr(cond_expr, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = er[0];
+            let cond_var = er[1];
+            let env_names = er[2];
+            let env_versions = er[3];
+            let env_next = er[4];
+            let tmp_counter = er[5];
+            let label_counter = er[6];
+
+            let before_names = copy_array(env_names);
+            let before_versions = copy_array(env_versions);
+
+            let l1 = fresh_label("else_", label_counter);
+            let else_label = l1[0];
+            let label_counter = l1[1];
+            let l2 = fresh_label("endif_", label_counter);
+            let end_label = l2[0];
+            let label_counter = l2[1];
+
+            let instrs = instrs.push(["jump_if_not", cond_var, else_label]);
+
+            let tr = plan_stmt_list(then_body, instrs, before_names, before_versions, env_next, tmp_counter, label_counter);
+            let instrs = tr[0];
+            let env_next = tr[3];
+            let tmp_counter = tr[4];
+            let label_counter = tr[5];
+
+            let instrs = instrs.push(["jump", end_label]);
+            let instrs = instrs.push(["label", else_label]);
+
+            let er2 = plan_stmt_list(else_body, instrs, before_names, before_versions, env_next, tmp_counter, label_counter);
+            let instrs = er2[0];
+            let env_next = er2[3];
+            let tmp_counter = er2[4];
+            let label_counter = er2[5];
+
+            let instrs = instrs.push(["label", end_label]);
+            return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        if (kind == "loop") {
+            let count_expr = stmt[1];
+            let body = stmt[2];
+
+            let er = plan_expr(count_expr, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+            let instrs = er[0];
+            let count_var = er[1];
+            let env_names = er[2];
+            let env_versions = er[3];
+            let env_next = er[4];
+            let tmp_counter = er[5];
+            let label_counter = er[6];
+
+            let l1 = fresh_label("loop_body_", label_counter);
+            let body_label = l1[0];
+            let label_counter = l1[1];
+            let l2 = fresh_label("loop_end_", label_counter);
+            let end_label = l2[0];
+            let label_counter = l2[1];
+
+            let instrs = instrs.push(["loop", count_var, body_label, end_label]);
+            let instrs = instrs.push(["label", body_label]);
+
+            let before_names = copy_array(env_names);
+            let before_versions = copy_array(env_versions);
+            let br = plan_stmt_list(body, instrs, before_names, before_versions, env_next, tmp_counter, label_counter);
+            let instrs = br[0];
+            let env_next = br[3];
+            let tmp_counter = br[4];
+            let label_counter = br[5];
+
+            let instrs = instrs.push(["label", end_label]);
+            return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+        }
+
+        // expression statement
+        let er = plan_expr(stmt, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+        let instrs = er[0];
+        let env_names = er[2];
+        let env_versions = er[3];
+        let env_next = er[4];
+        let tmp_counter = er[5];
+        let label_counter = er[6];
+        return [instrs, env_names, env_versions, env_next, tmp_counter, label_counter];
+    }
+
+    fn plan_program(ast) {
+        if (ast[0] != "PC") {
+            return ["plan", [["error", "expected PC root"]]];
+        }
+
+        let stmts = ast[2];
+        let instrs = [];
+        let env_names = [];
+        let env_versions = [];
+        let env_next = [];
+        let tmp_counter = 0;
+        let label_counter = 0;
+
+        let pr = plan_stmt_list(stmts, instrs, env_names, env_versions, env_next, tmp_counter, label_counter);
+        let instrs = pr[0];
+
+        return ["plan", instrs];
+    }
+
+    let plan = plan_program(ast);
+    OUTPUT plan;
+}

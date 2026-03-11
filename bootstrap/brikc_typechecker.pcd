@@ -1,0 +1,825 @@
+PC brikc_typechecker {
+    fn err(message) {
+        return ["error", message, 0, 0];
+    }
+
+    fn find_name(names, name) {
+        let idx = 0;
+        let found = 0;
+        let nlen = names.len();
+        loop(nlen) as i {
+            if (found == 0) {
+                if (names[i] == name) {
+                    let idx = i;
+                    let found = 1;
+                }
+            }
+        }
+        if (found == 0) {
+            return nlen;
+        }
+        return idx;
+    }
+
+    fn array_set(arr, idx, value) {
+        let out = [];
+        let alen = arr.len();
+        loop(alen) as i {
+            if (i == idx) {
+                let out = out.push(value);
+            } else {
+                let out = out.push(arr[i]);
+            }
+        }
+        return out;
+    }
+
+    fn copy_array(arr) {
+        let out = [];
+        let alen = arr.len();
+        loop(alen) as i {
+            let out = out.push(arr[i]);
+        }
+        return out;
+    }
+
+    fn get_env_type(env_names, env_types, name) {
+        let idx = find_name(env_names, name);
+        if (idx == env_names.len()) {
+            return "unknown";
+        }
+        return env_types[idx];
+    }
+
+    fn set_env_type(env_names, env_types, name, ty) {
+        let idx = find_name(env_names, name);
+        if (idx == env_names.len()) {
+            let env_names = env_names.push(name);
+            let env_types = env_types.push(ty);
+            return [env_names, env_types, []];
+        }
+
+        let current = env_types[idx];
+        if (current == ty) {
+            return [env_names, env_types, []];
+        }
+        if (current == "unknown") {
+            let env_types = array_set(env_types, idx, ty);
+            return [env_names, env_types, []];
+        }
+        if (ty == "unknown") {
+            return [env_names, env_types, []];
+        }
+
+        return [env_names, env_types, err("type mismatch")];
+    }
+
+    fn constrain_arg(expr, got_type, expected_type, env_names, env_types) {
+        if (expected_type == "unknown") {
+            return [got_type, env_names, env_types, []];
+        }
+
+        if (got_type == expected_type) {
+            return [got_type, env_names, env_types, []];
+        }
+
+        if (got_type == "unknown") {
+            if (expr[0] == "var") {
+                let varname = expr[1];
+                let sr = set_env_type(env_names, env_types, varname, expected_type);
+                let env_names = sr[0];
+                let env_types = sr[1];
+                let serr = sr[2];
+                if (serr.len() > 0) {
+                    return ["unknown", env_names, env_types, serr];
+                }
+                return [expected_type, env_names, env_types, []];
+            }
+            return [expected_type, env_names, env_types, []];
+        }
+
+        return [got_type, env_names, env_types, err("argument type mismatch")];
+    }
+
+    fn is_numeric_monomer(mc_id) {
+        if (mc_id == "MC_00") { return 1; }
+        if (mc_id == "MC_01") { return 1; }
+        if (mc_id == "MC_02") { return 1; }
+        if (mc_id == "MC_03") { return 1; }
+        if (mc_id == "MC_04") { return 1; }
+        if (mc_id == "MC_05") { return 1; }
+        if (mc_id == "MC_06") { return 1; }
+        if (mc_id == "MC_07") { return 1; }
+        if (mc_id == "MC_08") { return 1; }
+        if (mc_id == "MC_09") { return 1; }
+        if (mc_id == "MC_10") { return 1; }
+        if (mc_id == "MC_11") { return 1; }
+        if (mc_id == "MC_12") { return 1; }
+        if (mc_id == "MC_13") { return 1; }
+        if (mc_id == "MC_14") { return 1; }
+        if (mc_id == "MC_15") { return 1; }
+        return 0;
+    }
+
+    fn infer_expr(expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types) {
+        let node = expr[0];
+
+        if (node == "int") {
+            return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "str") {
+            return ["string", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "var") {
+            let name = expr[1];
+            let idx = find_name(env_names, name);
+            if (idx == env_names.len()) {
+                let env_names = env_names.push(name);
+                let env_types = env_types.push("unknown");
+                return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, []];
+            }
+            return [env_types[idx], env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "binop") {
+            let left = expr[2];
+            let right = expr[3];
+
+            let lr = infer_expr(left, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let lt = lr[0];
+            let env_names = lr[1];
+            let env_types = lr[2];
+            let fn_param_types = lr[3];
+            let fn_ret_types = lr[4];
+            let le = lr[5];
+            if (le.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, le]; }
+
+            let rr = infer_expr(right, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let rt = rr[0];
+            let env_names = rr[1];
+            let env_types = rr[2];
+            let fn_param_types = rr[3];
+            let fn_ret_types = rr[4];
+            let re = rr[5];
+            if (re.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, re]; }
+
+            let cr = constrain_arg(left, lt, "i64", env_names, env_types);
+            let env_names = cr[1];
+            let env_types = cr[2];
+            let ce = cr[3];
+            if (ce.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce]; }
+
+            let cr2 = constrain_arg(right, rt, "i64", env_names, env_types);
+            let env_names = cr2[1];
+            let env_types = cr2[2];
+            let ce2 = cr2[3];
+            if (ce2.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce2]; }
+
+            return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "call") {
+            let fn_name = expr[1];
+            let args = expr[2];
+            let fn_idx = find_name(fn_names, fn_name);
+            if (fn_idx == fn_names.len()) {
+                return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("unknown function")];
+            }
+
+            let param_types = fn_param_types[fn_idx];
+            if (args.len() != param_types.len()) {
+                return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("wrong argument count")];
+            }
+
+            let arg_len = args.len();
+            let local_param_types = copy_array(param_types);
+
+            loop(arg_len) as i {
+                let a = args[i];
+                let ar = infer_expr(a, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                let at = ar[0];
+                let env_names = ar[1];
+                let env_types = ar[2];
+                let fn_param_types = ar[3];
+                let fn_ret_types = ar[4];
+                let ae = ar[5];
+                if (ae.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ae]; }
+
+                let expected = local_param_types[i];
+                let cr = constrain_arg(a, at, expected, env_names, env_types);
+                let at = cr[0];
+                let env_names = cr[1];
+                let env_types = cr[2];
+                let ce = cr[3];
+                if (ce.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce]; }
+
+                if (expected == "unknown") {
+                    let local_param_types = array_set(local_param_types, i, at);
+                }
+            }
+
+            let fn_param_types = array_set(fn_param_types, fn_idx, local_param_types);
+            let ret = fn_ret_types[fn_idx];
+            return [ret, env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "monomer") {
+            let mc_id = expr[1];
+            let op = expr[2];
+            let args = expr[3];
+
+            if (is_numeric_monomer(mc_id) == 1) {
+                let arg_len = args.len();
+                loop(arg_len) as i {
+                    let a = args[i];
+                    let ar = infer_expr(a, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let at = ar[0];
+                    let env_names = ar[1];
+                    let env_types = ar[2];
+                    let fn_param_types = ar[3];
+                    let fn_ret_types = ar[4];
+                    let ae = ar[5];
+                    if (ae.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ae]; }
+
+                    let cr = constrain_arg(a, at, "i64", env_names, env_types);
+                    let env_names = cr[1];
+                    let env_types = cr[2];
+                    let ce = cr[3];
+                    if (ce.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce]; }
+                }
+                return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+            }
+
+            if (mc_id == "MC_40") {
+                if (op == "CONCAT") {
+                    if (args.len() != 2) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("CONCAT arity")]; }
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+
+                    let a1 = args[1];
+                    let r1 = infer_expr(a1, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t1 = r1[0];
+                    let env_names = r1[1];
+                    let env_types = r1[2];
+                    let fn_param_types = r1[3];
+                    let fn_ret_types = r1[4];
+                    let e1 = r1[5];
+                    if (e1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e1]; }
+
+                    let c1 = constrain_arg(a1, t1, "string", env_names, env_types);
+                    let env_names = c1[1];
+                    let env_types = c1[2];
+                    let ce1 = c1[3];
+                    if (ce1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce1]; }
+
+                    return ["string", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+
+            if (mc_id == "MC_41") {
+                if (op == "SUBSTR") {
+                    if (args.len() != 3) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("SUBSTR arity")]; }
+
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+
+                    let a1 = args[1];
+                    let r1 = infer_expr(a1, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t1 = r1[0];
+                    let env_names = r1[1];
+                    let env_types = r1[2];
+                    let fn_param_types = r1[3];
+                    let fn_ret_types = r1[4];
+                    let e1 = r1[5];
+                    if (e1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e1]; }
+                    let c1 = constrain_arg(a1, t1, "i64", env_names, env_types);
+                    let env_names = c1[1];
+                    let env_types = c1[2];
+                    let ce1 = c1[3];
+                    if (ce1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce1]; }
+
+                    let a2 = args[2];
+                    let r2 = infer_expr(a2, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t2 = r2[0];
+                    let env_names = r2[1];
+                    let env_types = r2[2];
+                    let fn_param_types = r2[3];
+                    let fn_ret_types = r2[4];
+                    let e2 = r2[5];
+                    if (e2.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e2]; }
+                    let c2 = constrain_arg(a2, t2, "i64", env_names, env_types);
+                    let env_names = c2[1];
+                    let env_types = c2[2];
+                    let ce2 = c2[3];
+                    if (ce2.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce2]; }
+
+                    return ["string", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+            if (mc_id == "MC_42") {
+                if (op == "SUBSTR") {
+                    if (args.len() != 3) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("SUBSTR arity")]; }
+
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+
+                    let a1 = args[1];
+                    let r1 = infer_expr(a1, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t1 = r1[0];
+                    let env_names = r1[1];
+                    let env_types = r1[2];
+                    let fn_param_types = r1[3];
+                    let fn_ret_types = r1[4];
+                    let e1 = r1[5];
+                    if (e1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e1]; }
+                    let c1 = constrain_arg(a1, t1, "i64", env_names, env_types);
+                    let env_names = c1[1];
+                    let env_types = c1[2];
+                    let ce1 = c1[3];
+                    if (ce1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce1]; }
+
+                    let a2 = args[2];
+                    let r2 = infer_expr(a2, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t2 = r2[0];
+                    let env_names = r2[1];
+                    let env_types = r2[2];
+                    let fn_param_types = r2[3];
+                    let fn_ret_types = r2[4];
+                    let e2 = r2[5];
+                    if (e2.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e2]; }
+                    let c2 = constrain_arg(a2, t2, "i64", env_names, env_types);
+                    let env_names = c2[1];
+                    let env_types = c2[2];
+                    let ce2 = c2[3];
+                    if (ce2.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce2]; }
+
+                    return ["string", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+
+            if (mc_id == "MC_42") {
+                if (op == "LEN") {
+                    if (args.len() != 1) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("LEN arity")]; }
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+                    return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+            if (mc_id == "MC_43") {
+                if (op == "LEN") {
+                    if (args.len() != 1) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("LEN arity")]; }
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+                    return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+
+            if (mc_id == "MC_43") {
+                if (op == "MATCH") {
+                    if (args.len() != 2) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("MATCH arity")]; }
+
+                    let a0 = args[0];
+                    let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t0 = r0[0];
+                    let env_names = r0[1];
+                    let env_types = r0[2];
+                    let fn_param_types = r0[3];
+                    let fn_ret_types = r0[4];
+                    let e0 = r0[5];
+                    if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+                    let c0 = constrain_arg(a0, t0, "string", env_names, env_types);
+                    let env_names = c0[1];
+                    let env_types = c0[2];
+                    let ce0 = c0[3];
+                    if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+
+                    let a1 = args[1];
+                    let r1 = infer_expr(a1, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                    let t1 = r1[0];
+                    let env_names = r1[1];
+                    let env_types = r1[2];
+                    let fn_param_types = r1[3];
+                    let fn_ret_types = r1[4];
+                    let e1 = r1[5];
+                    if (e1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e1]; }
+                    let c1 = constrain_arg(a1, t1, "string", env_names, env_types);
+                    let env_names = c1[1];
+                    let env_types = c1[2];
+                    let ce1 = c1[3];
+                    if (ce1.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce1]; }
+
+                    return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+                }
+            }
+
+            return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "array") {
+            let elems = expr[1];
+            let elen = elems.len();
+            loop(elen) as i {
+                let er = infer_expr(elems[i], env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                let env_names = er[1];
+                let env_types = er[2];
+                let fn_param_types = er[3];
+                let fn_ret_types = er[4];
+                let ee = er[5];
+                if (ee.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ee]; }
+            }
+            return ["array", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "index") {
+            let arr_expr = expr[1];
+            let idx_expr = expr[2];
+            let ar = infer_expr(arr_expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let env_names = ar[1];
+            let env_types = ar[2];
+            let fn_param_types = ar[3];
+            let fn_ret_types = ar[4];
+            let ae = ar[5];
+            if (ae.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ae]; }
+
+            let ir = infer_expr(idx_expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let it = ir[0];
+            let env_names = ir[1];
+            let env_types = ir[2];
+            let fn_param_types = ir[3];
+            let fn_ret_types = ir[4];
+            let ie = ir[5];
+            if (ie.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ie]; }
+
+            let cr = constrain_arg(idx_expr, it, "i64", env_names, env_types);
+            let env_names = cr[1];
+            let env_types = cr[2];
+            let ce = cr[3];
+            if (ce.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce]; }
+
+            return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        if (node == "method") {
+            let obj = expr[1];
+            let method_name = expr[2];
+            let args = expr[3];
+
+            let or = infer_expr(obj, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let obj_ty = or[0];
+            let env_names = or[1];
+            let env_types = or[2];
+            let fn_param_types = or[3];
+            let fn_ret_types = or[4];
+            let oe = or[5];
+            if (oe.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, oe]; }
+
+            if (method_name == "char_at") {
+                if (args.len() != 1) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, err("char_at arity")]; }
+                let cobj = constrain_arg(obj, obj_ty, "string", env_names, env_types);
+                let env_names = cobj[1];
+                let env_types = cobj[2];
+                let ce0 = cobj[3];
+                if (ce0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce0]; }
+
+                let a0 = args[0];
+                let r0 = infer_expr(a0, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+                let t0 = r0[0];
+                let env_names = r0[1];
+                let env_types = r0[2];
+                let fn_param_types = r0[3];
+                let fn_ret_types = r0[4];
+                let e0 = r0[5];
+                if (e0.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, e0]; }
+
+                let c0 = constrain_arg(a0, t0, "i64", env_names, env_types);
+                let env_names = c0[1];
+                let env_types = c0[2];
+                let ce = c0[3];
+                if (ce.len() > 0) { return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, ce]; }
+
+                return ["string", env_names, env_types, fn_param_types, fn_ret_types, []];
+            }
+
+            if (method_name == "len") {
+                return ["i64", env_names, env_types, fn_param_types, fn_ret_types, []];
+            }
+
+            if (method_name == "push") {
+                return ["array", env_names, env_types, fn_param_types, fn_ret_types, []];
+            }
+
+            return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, []];
+        }
+
+        return ["unknown", env_names, env_types, fn_param_types, fn_ret_types, []];
+    }
+
+    fn infer_stmt_list(stmts, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret) {
+        let slen = stmts.len();
+        loop(slen) as i {
+            let stmt = stmts[i];
+            let sr = infer_stmt(stmt, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret);
+            let env_names = sr[0];
+            let env_types = sr[1];
+            let fn_param_types = sr[2];
+            let fn_ret_types = sr[3];
+            let current_ret = sr[4];
+            let se = sr[5];
+            if (se.len() > 0) {
+                return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, se];
+            }
+        }
+        return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+    }
+
+    fn infer_stmt(stmt, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret) {
+        let kind = stmt[0];
+
+        if (kind == "let") {
+            let name = stmt[1];
+            let expr = stmt[2];
+            let er = infer_expr(expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let ty = er[0];
+            let env_names = er[1];
+            let env_types = er[2];
+            let fn_param_types = er[3];
+            let fn_ret_types = er[4];
+            let ee = er[5];
+            if (ee.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ee]; }
+
+            let sr = set_env_type(env_names, env_types, name, ty);
+            let env_names = sr[0];
+            let env_types = sr[1];
+            let se = sr[2];
+            if (se.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, se]; }
+
+            return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+        }
+
+        if (kind == "output") {
+            let expr = stmt[1];
+            let er = infer_expr(expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let env_names = er[1];
+            let env_types = er[2];
+            let fn_param_types = er[3];
+            let fn_ret_types = er[4];
+            let ee = er[5];
+            if (ee.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ee]; }
+            return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+        }
+
+        if (kind == "return") {
+            let expr = stmt[1];
+            let er = infer_expr(expr, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let ty = er[0];
+            let env_names = er[1];
+            let env_types = er[2];
+            let fn_param_types = er[3];
+            let fn_ret_types = er[4];
+            let ee = er[5];
+            if (ee.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ee]; }
+
+            if (current_ret == "unknown") {
+                let current_ret = ty;
+            } else {
+                if (ty != current_ret) {
+                    if (ty != "unknown") {
+                        return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, err("inconsistent return type")];
+                    }
+                }
+            }
+
+            return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+        }
+
+        if (kind == "if") {
+            let cond = stmt[1];
+            let then_stmts = stmt[2];
+            let else_stmts = stmt[3];
+
+            let cr = infer_expr(cond, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+            let cty = cr[0];
+            let env_names = cr[1];
+            let env_types = cr[2];
+            let fn_param_types = cr[3];
+            let fn_ret_types = cr[4];
+            let ce = cr[5];
+            if (ce.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ce]; }
+
+            let cc = constrain_arg(cond, cty, "i64", env_names, env_types);
+            let env_names = cc[1];
+            let env_types = cc[2];
+            let cce = cc[3];
+            if (cce.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, err("if condition must be numeric")]; }
+
+            let tenv_names = copy_array(env_names);
+            let tenv_types = copy_array(env_types);
+            let tr = infer_stmt_list(then_stmts, tenv_names, tenv_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret);
+            let fn_param_types = tr[2];
+            let fn_ret_types = tr[3];
+            let current_ret = tr[4];
+            let te = tr[5];
+            if (te.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, te]; }
+
+            let eenv_names = copy_array(env_names);
+            let eenv_types = copy_array(env_types);
+            let er = infer_stmt_list(else_stmts, eenv_names, eenv_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret);
+            let fn_param_types = er[2];
+            let fn_ret_types = er[3];
+            let current_ret = er[4];
+            let ee = er[5];
+            if (ee.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ee]; }
+
+            return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+        }
+
+        if (kind == "fn") {
+            return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+        }
+
+        let er = infer_expr(stmt, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types);
+        let env_names = er[1];
+        let env_types = er[2];
+        let fn_param_types = er[3];
+        let fn_ret_types = er[4];
+        let ee = er[5];
+        if (ee.len() > 0) { return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, ee]; }
+
+        return [env_names, env_types, fn_param_types, fn_ret_types, current_ret, []];
+    }
+
+    fn collect_functions(stmts) {
+        let fn_names = [];
+        let fn_params = [];
+        let fn_param_types = [];
+        let fn_ret_types = [];
+        let fn_bodies = [];
+
+        let slen = stmts.len();
+        loop(slen) as i {
+            let stmt = stmts[i];
+            if (stmt[0] == "fn") {
+                let name = stmt[1];
+                let params = stmt[2];
+                let body = stmt[3];
+
+                let ptypes = [];
+                let plen = params.len();
+                loop(plen) as j {
+                    let ptypes = ptypes.push("unknown");
+                }
+
+                let fn_names = fn_names.push(name);
+                let fn_params = fn_params.push(params);
+                let fn_param_types = fn_param_types.push(ptypes);
+                let fn_ret_types = fn_ret_types.push("unknown");
+                let fn_bodies = fn_bodies.push(body);
+            }
+        }
+
+        return [fn_names, fn_params, fn_param_types, fn_ret_types, fn_bodies];
+    }
+
+    fn infer_function(idx, fn_names, fn_params, fn_param_types, fn_ret_types, fn_bodies) {
+        let params = fn_params[idx];
+        let ptypes = fn_param_types[idx];
+        let body = fn_bodies[idx];
+        let current_ret = fn_ret_types[idx];
+
+        let env_names = copy_array(params);
+        let env_types = copy_array(ptypes);
+
+        let r = infer_stmt_list(body, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types, current_ret);
+        let env_names = r[0];
+        let env_types = r[1];
+        let fn_param_types = r[2];
+        let fn_ret_types = r[3];
+        let current_ret = r[4];
+        let e = r[5];
+        if (e.len() > 0) {
+            return [fn_param_types, fn_ret_types, e];
+        }
+
+        let new_ptypes = copy_array(ptypes);
+        let plen = params.len();
+        loop(plen) as i {
+            let pname = params[i];
+            let pidx = find_name(env_names, pname);
+            if (pidx != env_names.len()) {
+                let new_ptypes = array_set(new_ptypes, i, env_types[pidx]);
+            }
+        }
+
+        let fn_param_types = array_set(fn_param_types, idx, new_ptypes);
+        let fn_ret_types = array_set(fn_ret_types, idx, current_ret);
+
+        return [fn_param_types, fn_ret_types, []];
+    }
+
+    fn typecheck_program(ast) {
+        if (ast[0] != "program") {
+            return err("expected program AST");
+        }
+
+        let name = ast[1];
+        let stmts = ast[2];
+
+        let cf = collect_functions(stmts);
+        let fn_names = cf[0];
+        let fn_params = cf[1];
+        let fn_param_types = cf[2];
+        let fn_ret_types = cf[3];
+        let fn_bodies = cf[4];
+
+        let flen = fn_names.len();
+        loop(flen) as i {
+            let fr = infer_function(i, fn_names, fn_params, fn_param_types, fn_ret_types, fn_bodies);
+            let fn_param_types = fr[0];
+            let fn_ret_types = fr[1];
+            let fe = fr[2];
+            if (fe.len() > 0) {
+                return fe;
+            }
+        }
+
+        let env_names = [];
+        let env_types = [];
+        let top = infer_stmt_list(stmts, env_names, env_types, fn_names, fn_params, fn_param_types, fn_ret_types, "unknown");
+        let env_names = top[0];
+        let env_types = top[1];
+        let fn_param_types = top[2];
+        let fn_ret_types = top[3];
+        let te = top[5];
+        if (te.len() > 0) {
+            return te;
+        }
+
+        return ["typed_program", name, ast, env_names, env_types, fn_names, fn_param_types, fn_ret_types];
+    }
+
+    let typed = typecheck_program(ast);
+    OUTPUT typed;
+}

@@ -1,0 +1,246 @@
+# System Monitoring Example
+#
+# Demonstrates system introspection using system family monomers (MC_56-MC_63).
+# This example collects system metrics and performs threshold-based monitoring.
+#
+# Monomers used:
+# - MC_56 (TIME): Get current timestamp
+# - MC_57 (CPU): Get CPU usage percentage
+# - MC_58 (MEM): Get memory usage
+# - MC_59 (DISK): Get disk usage
+# - MC_60 (NET): Get network statistics
+# - MC_61 (PID): Get process ID
+# - MC_62 (UID): Get user ID
+# - MC_63 (ENV): Get environment variable
+#
+# Workflow:
+# 1. Collect current timestamp
+# 2. Get CPU usage percentage
+# 3. Get memory usage (bytes)
+# 4. Get disk I/O statistics
+# 5. Check thresholds and generate alerts
+# 6. Output monitoring report
+
+name: system_monitoring_example
+description: Demonstrates system introspection and monitoring
+
+inputs:
+  - name: cpu_threshold
+    type: u8
+    description: CPU usage alert threshold (0-100%)
+    range: [0, 100]
+
+  - name: memory_threshold_mb
+    type: u32
+    description: Memory usage alert threshold in MB
+    range: [0, 16384]  # Max 16GB for bounded domain
+
+  - name: monitoring_interval_ms
+    type: u32
+    description: Monitoring interval in milliseconds
+    range: [100, 60000]  # 100ms to 60 seconds
+
+outputs:
+  - name: timestamp
+    type: u64
+    description: Current timestamp (Unix epoch milliseconds)
+
+  - name: cpu_usage
+    type: u8
+    description: Current CPU usage percentage (0-100)
+
+  - name: memory_usage_mb
+    type: u32
+    description: Current memory usage in megabytes
+
+  - name: disk_read_bytes
+    type: u64
+    description: Total disk bytes read
+
+  - name: disk_write_bytes
+    type: u64
+    description: Total disk bytes written
+
+  - name: cpu_alert
+    type: u8
+    description: CPU alert flag (1 = threshold exceeded, 0 = normal)
+
+  - name: memory_alert
+    type: u8
+    description: Memory alert flag (1 = threshold exceeded, 0 = normal)
+
+  - name: process_id
+    type: u32
+    description: Current process ID
+
+operations:
+  # Step 1: Get current timestamp (MC_56)
+  - monomer: TIME
+    id: MC_56
+    inputs: []
+    outputs:
+      - timestamp
+    description: Get current system time (Unix epoch milliseconds)
+
+  # Step 2: Get CPU usage (MC_57)
+  - monomer: CPU
+    id: MC_57
+    inputs: []
+    outputs:
+      - cpu_usage
+    description: Get current CPU usage percentage (0-100)
+    postconditions:
+      - cpu_usage <= 100  # Ensure valid percentage
+
+  # Step 3: Get memory usage (MC_58)
+  - monomer: MEM
+    id: MC_58
+    inputs: []
+    outputs:
+      - memory_usage_bytes
+    description: Get current memory usage in bytes
+    postconditions:
+      - memory_usage_bytes >= 0  # Non-negative memory
+
+  # Step 4: Get disk I/O statistics (MC_59)
+  - monomer: DISK
+    id: MC_59
+    inputs: []
+    outputs:
+      - disk_read_bytes
+      - disk_write_bytes
+    description: Get disk read/write statistics
+    postconditions:
+      - disk_read_bytes >= 0
+      - disk_write_bytes >= 0
+
+  # Step 5: Get network statistics (MC_60)
+  - monomer: NET
+    id: MC_60
+    inputs: []
+    outputs:
+      - net_bytes_sent
+      - net_bytes_received
+    description: Get network I/O statistics
+
+  # Step 6: Get process ID (MC_61)
+  - monomer: PID
+    id: MC_61
+    inputs: []
+    outputs:
+      - process_id
+    description: Get current process ID
+    postconditions:
+      - process_id > 0  # Valid PID
+
+  # Step 7: Get user ID (MC_62)
+  - monomer: UID
+    id: MC_62
+    inputs: []
+    outputs:
+      - user_id
+    description: Get current user ID
+
+  # Step 8: Get environment variable (MC_63)
+  - monomer: ENV
+    id: MC_63
+    inputs:
+      - var_name: "PATH"  # Example: get PATH environment variable
+    outputs:
+      - env_value
+    description: Get environment variable value
+
+  # Step 9: Convert memory bytes to MB (MC_03: DIV8)
+  # Divide by 1,048,576 (1MB) to get megabytes
+  - monomer: DIV8
+    id: MC_03
+    inputs:
+      - memory_usage_bytes
+      - divisor: 1048576  # 1MB in bytes
+    outputs:
+      - memory_usage_mb
+    description: Convert memory usage to megabytes
+
+  # Step 10: Check CPU threshold (MC_24: IF)
+  # Compare cpu_usage with cpu_threshold
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - cpu_usage
+      - cpu_threshold
+    outputs:
+      - cpu_comparison
+    description: Compare CPU usage with threshold
+
+  # Step 11: Generate CPU alert
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - cpu_comparison
+    outputs:
+      - cpu_alert
+    description: Set CPU alert flag if threshold exceeded
+
+  # Step 12: Check memory threshold
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - memory_usage_mb
+      - memory_threshold_mb
+    outputs:
+      - memory_comparison
+    description: Compare memory usage with threshold
+
+  # Step 13: Generate memory alert
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - memory_comparison
+    outputs:
+      - memory_alert
+    description: Set memory alert flag if threshold exceeded
+
+# Limits for circuit closure (Φ_c = 1)
+limits:
+  max_iterations: 1       # Single monitoring snapshot (no loops)
+  max_recursion_depth: 0  # No recursion
+  max_execution_time_ms: 1000  # 1 second timeout
+
+# Energy budget for TCE validation
+energy_budget: 10000  # Higher budget for system calls
+
+# Expected TCE metrics
+expected_metrics:
+  phi_c: 1.0        # Circuit closure (mandatory)
+  delta_n: 0.02     # Low logical noise (system calls are deterministic in bounded context)
+  c_m: 0.92         # High coherence modularity
+  etc: 0.38         # Energy-to-coherence ratio (< 0.5 target)
+
+# Example usage:
+# Input:
+#   cpu_threshold = 80
+#   memory_threshold_mb = 4096
+#   monitoring_interval_ms = 1000
+#
+# Expected output (example):
+#   timestamp = 1699564800000 (Unix epoch ms)
+#   cpu_usage = 45
+#   memory_usage_mb = 2048
+#   disk_read_bytes = 1073741824  (1GB)
+#   disk_write_bytes = 536870912  (512MB)
+#   cpu_alert = 0 (45% < 80% threshold)
+#   memory_alert = 0 (2048MB < 4096MB threshold)
+#   process_id = 12345
+#
+# Note: System monomers (MC_56-MC_63) interact with external environment
+# through controlled wrappers, maintaining circuit closure (Φ_c = 1) by:
+# - Bounded domains (CPU 0-100%, memory max 16GB, etc.)
+# - Deterministic sampling at fixed intervals
+# - No unbounded syscalls or blocking operations
+# - Timeout enforcement (max_execution_time_ms)
+#
+# Wrapper Layer Pattern:
+# External Environment → Wrapper (bounds check) → System Monomer → Core EVA Logic
+#
+# This ensures the "core never touches the chaos directly" principle while
+# allowing verified interaction with system resources.

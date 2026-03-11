@@ -1,0 +1,32 @@
+# Arithmetic Pipeline Example
+# Demonstrates serial composition: ADD8 ⊗ MUL8
+# Input: two u8 values (a, b)
+# Output: (a + b) * 2
+
+name: arithmetic_pipeline
+description: "Serial composition of ADD8 and MUL8 monomers"
+version: "1.0.0"
+
+io:
+  inputs:
+    - name: a
+      type: U8
+      description: "First operand"
+    - name: b
+      type: U8
+      description: "Second operand"
+  outputs:
+    - name: result
+      type: U8
+      description: "Result of (a + b) * 2"
+
+# Execution limits ensure circuit closure (Φ_c = 1)
+limits:
+  max_iterations_per_loop: 1000
+  max_polymer_depth: 10
+  max_monomers_per_polymer: 100
+
+# Energy budgets for thermodynamic verification
+energy_budgets:
+  total_etc_budget: 1000
+  max_etc_per_monomer: 100

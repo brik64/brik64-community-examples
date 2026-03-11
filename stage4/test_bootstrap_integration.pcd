@@ -1,0 +1,8 @@
+PC test_bootstrap_integration {
+    // Read argv[1] via MC_63.ENV (implemented in native codegen via R14)
+    let arg = MC_63.ENV("ARGV_1");
+    // Compute strlen via MC_43.LEN (inline strlen in native codegen)
+    let n = MC_43.LEN(arg);
+    // Exit code = length of argv[1] (verifiable: "hello_world" -> 11)
+    OUTPUT n;
+}

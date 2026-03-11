@@ -1,0 +1,10 @@
+import { one, two } from "lib/math.pcd";
+import "lib/std.pcd";
+
+PC fmt_smoke {
+  let add_one = |x| {
+    return (x + 1);
+  };
+  let value = match 2 { 1 => 10, _ => 20 };
+  OUTPUT add_one(value);
+}

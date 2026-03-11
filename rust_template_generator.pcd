@@ -1,0 +1,39 @@
+// BRIK-64 Stage 1 Component: Rust Code Template Generator
+// Generates a Rust function skeleton for a polymer using string monomers.
+// This is the second compiler-in-PCD component.
+
+PC rust_template_generator {
+    let polymer_name = "example_polymer";
+    let monomer_count = 3;
+
+    // Build function header
+    let code = MC_40.CONCAT("// BRIK-64 Generated Rust Code\n", "// Backend version: 1.0.0\n\n");
+    let code = MC_40.CONCAT(code, "use brik_core::domain::Value;\n");
+    let code = MC_40.CONCAT(code, "use brik_core::{MonomerId, RuntimeError};\n");
+    let code = MC_40.CONCAT(code, "use brik_runtime::DispatchTable;\n\n");
+
+    // Function signature
+    let code = MC_40.CONCAT(code, "pub fn execute_");
+    let code = MC_40.CONCAT(code, polymer_name);
+    let code = MC_40.CONCAT(code, "(inputs: Vec<Value>) -> Result<Vec<Value>, RuntimeError> {\n");
+
+    // Dispatch table init
+    let code = MC_40.CONCAT(code, "    let dispatch = DispatchTable::new();\n\n");
+
+    // Generate monomer dispatch calls in a loop
+    loop(monomer_count) as i {
+        let code = MC_40.CONCAT(code, "    // Monomer step ");
+        let code = MC_40.CONCAT(code, "N");
+        let code = MC_40.CONCAT(code, "\n");
+        let code = MC_40.CONCAT(code, "    let result_");
+        let code = MC_40.CONCAT(code, "N");
+        let code = MC_40.CONCAT(code, " = dispatch.dispatch(MonomerId::new(0).unwrap(), &[]);\n\n");
+    }
+
+    // Close function
+    let code = MC_40.CONCAT(code, "    Ok(vec![])\n");
+    let code = MC_40.CONCAT(code, "}\n");
+
+    OUTPUT code;
+    return code;
+}

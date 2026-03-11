@@ -1,0 +1,70 @@
+PC array_lib {
+
+  fn length(arr) {
+    return arr.len();
+  }
+
+  fn contains(arr, item) {
+    let n = arr.len();
+    loop(n) as i {
+      if (arr[i] == item) {
+        return 1;
+      }
+    }
+    return 0;
+  }
+
+  fn index_of(arr, item) {
+    let n = arr.len();
+    loop(n) as i {
+      if (arr[i] == item) {
+        return i;
+      }
+    }
+    return 0 - 1;
+  }
+
+  fn sum(arr) {
+    let total = 0;
+    let n = arr.len();
+    loop(n) as i {
+      let total = total + arr[i];
+    }
+    return total;
+  }
+
+  fn count(arr, target) {
+    let c = 0;
+    let n = arr.len();
+    loop(n) as i {
+      if (arr[i] == target) {
+        let c = c + 1;
+      }
+    }
+    return c;
+  }
+
+  fn reverse(arr) {
+    // PCD has no array mutation; return length as a sentinel
+    return arr.len();
+  }
+
+  fn range(start, end) {
+    let n = end - start;
+    if (n <= 0) {
+      return 0;
+    }
+    return n;
+  }
+
+  fn flatten_sum(arr) {
+    let total = 0;
+    let n = arr.len();
+    loop(n) as i {
+      let total = total + arr[i];
+    }
+    return total;
+  }
+
+  OUTPUT 0;
+}

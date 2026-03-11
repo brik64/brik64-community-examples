@@ -1,0 +1,9 @@
+# URM add: R0 := R0 + R1
+# Registers used: R0 (acc), R1 (addend), R2 (counter)
+# Labels are 1-based.
+
+1: J(2,1,5)   # if R2 == R1 goto HALT
+2: S(0)       # R0 = R0 + 1
+3: S(2)       # R2 = R2 + 1
+4: J(2,2,1)   # unconditional jump to 1
+# HALT at pc = n+1 = 5

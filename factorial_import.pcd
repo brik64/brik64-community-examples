@@ -1,0 +1,17 @@
+// factorial_import.pcd
+// Demuestra el sistema de imports PCD
+// Importa math_factorial de la stdlib y lo ejecuta
+//
+// NOTA: La sintaxis de imports usa 'call polymer()' para expandir inline.
+//       Los paths son relativos al archivo PCD.
+//
+// Uso (desde el directorio software/examples/):
+//   brikc run factorial_import.pcd
+// Salida: 120 (5! = 120)
+//
+// BRIK.toml en el directorio resuelve automáticamente las rutas de stdlib.
+
+PC factorial_import {
+    call math_factorial();
+    return result;
+}

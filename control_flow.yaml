@@ -1,0 +1,117 @@
+# Control Flow Example
+#
+# Demonstrates conditional and loop operations using control family monomers (MC_24-MC_31).
+# This example implements a simple conditional counter that increments based on a flag.
+#
+# Monomers used:
+# - MC_24 (IF): Conditional execution
+# - MC_25 (LOOP): Bounded iteration
+# - MC_04 (INC): Increment operation
+# - MC_05 (DEC): Decrement operation
+#
+# Workflow:
+# 1. Check if flag is set using IF monomer
+# 2. If true, enter LOOP to increment counter
+# 3. LOOP executes bounded iterations (max 10)
+# 4. Each iteration increments the value
+# 5. DEC decrements the loop counter
+# 6. Output final result
+
+name: control_flow_example
+description: Demonstrates conditional execution and bounded loops
+
+inputs:
+  - name: initial_value
+    type: u8
+    description: Starting value for the counter
+
+  - name: flag
+    type: u8
+    description: Control flag (0 = skip loop, 1 = execute loop)
+
+  - name: iterations
+    type: u8
+    description: Number of loop iterations (max 10 for closure)
+
+outputs:
+  - name: result
+    type: u8
+    description: Final counter value after conditional execution
+
+operations:
+  # Step 1: Conditional check using IF monomer (MC_24)
+  # If flag == 1, proceed with loop execution
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - flag
+    outputs:
+      - condition_result
+    description: Check if loop should execute
+
+  # Step 2: Bounded loop using LOOP monomer (MC_25)
+  # Execute loop with bounded iterations (Φ_c = 1 requirement)
+  - monomer: LOOP
+    id: MC_25
+    inputs:
+      - iterations
+      - initial_value
+    outputs:
+      - loop_result
+    description: Execute bounded loop (max 10 iterations)
+    preconditions:
+      - iterations <= 10  # Ensures circuit closure (Φ_c = 1)
+
+  # Step 3: Increment operation inside loop (MC_04)
+  - monomer: INC
+    id: MC_04
+    inputs:
+      - loop_result
+    outputs:
+      - incremented_value
+    description: Increment value in each iteration
+
+  # Step 4: Decrement loop counter (MC_05)
+  - monomer: DEC
+    id: MC_05
+    inputs:
+      - iterations
+    outputs:
+      - remaining_iterations
+    description: Decrement iteration counter
+
+  # Step 5: Conditional output
+  # If condition_result == 1, use incremented_value
+  # Otherwise, use initial_value
+  - monomer: IF
+    id: MC_24
+    inputs:
+      - condition_result
+      - incremented_value
+      - initial_value
+    outputs:
+      - result
+    description: Select final output based on condition
+
+# Limits for circuit closure (Φ_c = 1)
+limits:
+  max_iterations: 10
+  max_recursion_depth: 0  # No recursion allowed
+  max_execution_time_ms: 100
+
+# Energy budget for TCE validation
+energy_budget: 5000  # Joules
+
+# Expected TCE metrics
+expected_metrics:
+  phi_c: 1.0        # Circuit closure (mandatory)
+  delta_n: 0.04     # Logical noise (< 0.05 target)
+  c_m: 0.85         # Coherence modularity (0.7-0.95 range)
+  etc: 0.42         # Energy-to-coherence ratio (< 0.5 target)
+
+# Example usage:
+# Input: initial_value=5, flag=1, iterations=3
+# Expected output: result=8 (5 + 3 increments)
+#
+# Input: initial_value=5, flag=0, iterations=3
+# Expected output: result=5 (no loop execution)

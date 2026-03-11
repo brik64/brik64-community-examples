@@ -1,0 +1,98 @@
+PC tc_urm_add_demo_formal {
+  fn array_concat(a, b) {
+    let out = [];
+    let an = a.len();
+    loop(an) as i { let out = out.push(a[i]); }
+    let bn = b.len();
+    loop(bn) as j { let out = out.push(b[j]); }
+    return out;
+  }
+
+  fn array_set(a, idx, value) {
+    let left = [];
+    let n = a.len();
+    loop(n) as i {
+      if (i < idx) { let left = left.push(a[i]); }
+    }
+    let right = [];
+    loop(n) as i {
+      if (i > idx) { let right = right.push(a[i]); }
+    }
+    return array_concat(array_concat(left, [value]), right);
+  }
+
+  fn reg_get(regs, idx) {
+    if (idx >= regs.len()) { return 0; }
+    return regs[idx];
+  }
+
+  fn reg_set(regs, idx, value) {
+    let out = regs;
+    if (idx >= out.len()) {
+      let need = ((idx - out.len()) + 1);
+      loop(need) as _k { let out = out.push(0); }
+    }
+    return array_set(out, idx, value);
+  }
+
+  // URM instruction encoding: [op, i, j, k]
+  // op: 0=Z(i), 1=S(i), 2=T(i,j), 3=J(i,j,k)
+  fn run_urm(prog, regs, step_budget) {
+    let pc = 1;
+    let halted = 0;
+
+    loop(step_budget) as _step {
+      if (halted == 1) { break; }
+      let n = prog.len();
+      if (pc > n) { let halted = 1; break; }
+
+      let inst = prog[(pc - 1)];
+      let op = inst[0];
+      let i = inst[1];
+      let j = inst[2];
+      let k = inst[3];
+
+      if (op == 0) {
+        let regs = reg_set(regs, i, 0);
+        let pc = (pc + 1);
+      }
+
+      if (op == 1) {
+        let regs = reg_set(regs, i, (reg_get(regs, i) + 1));
+        let pc = (pc + 1);
+      }
+
+      if (op == 2) {
+        let regs = reg_set(regs, j, reg_get(regs, i));
+        let pc = (pc + 1);
+      }
+
+      if (op == 3) {
+        if (reg_get(regs, i) == reg_get(regs, j)) {
+          let pc = k;
+        } else {
+          let pc = (pc + 1);
+        }
+      }
+    }
+
+    return regs;
+  }
+
+  fn urm_add(x, y) {
+    // 1: J(2,1,5) 2: S(0) 3: S(2) 4: J(2,2,1)
+    let prog = [];
+    let prog = prog.push([3, 2, 1, 5]);
+    let prog = prog.push([1, 0, 0, 0]);
+    let prog = prog.push([1, 2, 0, 0]);
+    let prog = prog.push([3, 2, 2, 1]);
+
+    let regs = [];
+    let regs = reg_set(regs, 0, x);
+    let regs = reg_set(regs, 1, y);
+    let regs = run_urm(prog, regs, 2048);
+    return reg_get(regs, 0);
+  }
+
+  OUTPUT urm_add(7, 5);
+}

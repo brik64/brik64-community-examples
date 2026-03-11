@@ -1,0 +1,530 @@
+PC brikc_lexer {
+    fn is_alpha(ch) {
+        if (ch == "a") { return 1; }
+        if (ch == "b") { return 1; }
+        if (ch == "c") { return 1; }
+        if (ch == "d") { return 1; }
+        if (ch == "e") { return 1; }
+        if (ch == "f") { return 1; }
+        if (ch == "g") { return 1; }
+        if (ch == "h") { return 1; }
+        if (ch == "i") { return 1; }
+        if (ch == "j") { return 1; }
+        if (ch == "k") { return 1; }
+        if (ch == "l") { return 1; }
+        if (ch == "m") { return 1; }
+        if (ch == "n") { return 1; }
+        if (ch == "o") { return 1; }
+        if (ch == "p") { return 1; }
+        if (ch == "q") { return 1; }
+        if (ch == "r") { return 1; }
+        if (ch == "s") { return 1; }
+        if (ch == "t") { return 1; }
+        if (ch == "u") { return 1; }
+        if (ch == "v") { return 1; }
+        if (ch == "w") { return 1; }
+        if (ch == "x") { return 1; }
+        if (ch == "y") { return 1; }
+        if (ch == "z") { return 1; }
+        if (ch == "A") { return 1; }
+        if (ch == "B") { return 1; }
+        if (ch == "C") { return 1; }
+        if (ch == "D") { return 1; }
+        if (ch == "E") { return 1; }
+        if (ch == "F") { return 1; }
+        if (ch == "G") { return 1; }
+        if (ch == "H") { return 1; }
+        if (ch == "I") { return 1; }
+        if (ch == "J") { return 1; }
+        if (ch == "K") { return 1; }
+        if (ch == "L") { return 1; }
+        if (ch == "M") { return 1; }
+        if (ch == "N") { return 1; }
+        if (ch == "O") { return 1; }
+        if (ch == "P") { return 1; }
+        if (ch == "Q") { return 1; }
+        if (ch == "R") { return 1; }
+        if (ch == "S") { return 1; }
+        if (ch == "T") { return 1; }
+        if (ch == "U") { return 1; }
+        if (ch == "V") { return 1; }
+        if (ch == "W") { return 1; }
+        if (ch == "X") { return 1; }
+        if (ch == "Y") { return 1; }
+        if (ch == "Z") { return 1; }
+        if (ch == "_") { return 1; }
+        return 0;
+    }
+
+    fn is_digit(ch) {
+        if (ch == "0") { return 1; }
+        if (ch == "1") { return 1; }
+        if (ch == "2") { return 1; }
+        if (ch == "3") { return 1; }
+        if (ch == "4") { return 1; }
+        if (ch == "5") { return 1; }
+        if (ch == "6") { return 1; }
+        if (ch == "7") { return 1; }
+        if (ch == "8") { return 1; }
+        if (ch == "9") { return 1; }
+        return 0;
+    }
+
+    fn is_alnum(ch) {
+        if (is_alpha(ch) == 1) { return 1; }
+        if (is_digit(ch) == 1) { return 1; }
+        return 0;
+    }
+
+    fn is_whitespace(ch) {
+        if (ch == " ") { return 1; }
+        if (ch == "\n") { return 1; }
+        if (ch == "\t") { return 1; }
+        if (ch == "\r") { return 1; }
+        return 0;
+    }
+
+    fn is_keyword(word) {
+        if (word == "fn") { return 1; }
+        if (word == "let") { return 1; }
+        if (word == "if") { return 1; }
+        if (word == "else") { return 1; }
+        if (word == "loop") { return 1; }
+        if (word == "return") { return 1; }
+        if (word == "PC") { return 1; }
+        if (word == "import") { return 1; }
+        if (word == "match") { return 1; }
+        if (word == "try") { return 1; }
+        if (word == "catch") { return 1; }
+        if (word == "OUTPUT") { return 1; }
+        return 0;
+    }
+
+    fn push_token(tokens, kind, value, line, col) {
+        let tokens = tokens.push(kind);
+        let tokens = tokens.push(value);
+        let tokens = tokens.push(line);
+        let tokens = tokens.push(col);
+        return tokens;
+    }
+
+    fn scan_word(source, pos, len, col) {
+        let word = "";
+        let end = pos;
+        let end_col = col;
+        let done = 0;
+        loop(len) as _j {
+            if (done == 0) {
+                if (end < len) {
+                    let c = source.char_at(end);
+                    if (is_alnum(c) == 1) {
+                        let word = MC_40.CONCAT(word, c);
+                        let end = MC_00.ADD8(end, 1);
+                        let end_col = MC_00.ADD8(end_col, 1);
+                    } else {
+                        let done = 1;
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+        return [word, end, end_col];
+    }
+
+    fn scan_number(source, pos, len, col) {
+        let num = "";
+        let end = pos;
+        let end_col = col;
+        let done = 0;
+        loop(len) as _j {
+            if (done == 0) {
+                if (end < len) {
+                    let c = source.char_at(end);
+                    if (is_digit(c) == 1) {
+                        let num = MC_40.CONCAT(num, c);
+                        let end = MC_00.ADD8(end, 1);
+                        let end_col = MC_00.ADD8(end_col, 1);
+                    } else {
+                        let done = 1;
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+        return [num, end, end_col];
+    }
+
+    fn scan_string(source, pos, len, line, col) {
+        let value = "";
+        let end = MC_00.ADD8(pos, 1);
+        let end_line = line;
+        let end_col = MC_00.ADD8(col, 1);
+        let escape = 0;
+        let done = 0;
+
+        loop(MC_02.MUL8(len, 2)) as _j {
+            if (done == 0) {
+                if (end < len) {
+                    let c = source.char_at(end);
+                    if (escape == 1) {
+                        if (c == "n") {
+                            let value = MC_40.CONCAT(value, "\n");
+                        } else {
+                            if (c == "t") {
+                                let value = MC_40.CONCAT(value, "\t");
+                            } else {
+                                if (c == "r") {
+                                    let value = MC_40.CONCAT(value, "\r");
+                                } else {
+                                    if (c == "\"") {
+                                        let value = MC_40.CONCAT(value, "\"");
+                                    } else {
+                                        if (c == "\\") {
+                                            let value = MC_40.CONCAT(value, "\\");
+                                        } else {
+                                            let value = MC_40.CONCAT(value, c);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        let escape = 0;
+                        let end = MC_00.ADD8(end, 1);
+                        if (c == "\n") {
+                            let end_line = MC_00.ADD8(end_line, 1);
+                            let end_col = 1;
+                        } else {
+                            let end_col = MC_00.ADD8(end_col, 1);
+                        }
+                    } else {
+                        if (c == "\\") {
+                            let escape = 1;
+                            let end = MC_00.ADD8(end, 1);
+                            let end_col = MC_00.ADD8(end_col, 1);
+                        } else {
+                            if (c == "\"") {
+                                let done = 1;
+                                let end = MC_00.ADD8(end, 1);
+                                let end_col = MC_00.ADD8(end_col, 1);
+                            } else {
+                                let value = MC_40.CONCAT(value, c);
+                                let end = MC_00.ADD8(end, 1);
+                                if (c == "\n") {
+                                    let end_line = MC_00.ADD8(end_line, 1);
+                                    let end_col = 1;
+                                } else {
+                                    let end_col = MC_00.ADD8(end_col, 1);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    let done = 1;
+                }
+            }
+        }
+
+        return [value, end, end_line, end_col];
+    }
+
+    fn tokenize(source) {
+        let tokens = [];
+        let pos = 0;
+        let line = 1;
+        let col = 1;
+        let len = MC_43.LEN(source);
+
+        loop(MC_02.MUL8(len, 4)) as _i {
+            if (pos < len) {
+                let ch = source.char_at(pos);
+
+                if (is_whitespace(ch) == 1) {
+                    let pos = MC_00.ADD8(pos, 1);
+                    if (ch == "\n") {
+                        let line = MC_00.ADD8(line, 1);
+                        let col = 1;
+                    } else {
+                        let col = MC_00.ADD8(col, 1);
+                    }
+                } else {
+                    if (ch == "/") {
+                        if (MC_00.ADD8(pos, 1) < len) {
+                            let next = source.char_at(MC_00.ADD8(pos, 1));
+                            if (next == "/") {
+                                let pos = MC_00.ADD8(pos, 2);
+                                let col = MC_00.ADD8(col, 2);
+                                let done = 0;
+                                loop(len) as _c {
+                                    if (done == 0) {
+                                        if (pos < len) {
+                                            let cc = source.char_at(pos);
+                                            if (cc == "\n") {
+                                                let pos = MC_00.ADD8(pos, 1);
+                                                let line = MC_00.ADD8(line, 1);
+                                                let col = 1;
+                                                let done = 1;
+                                            } else {
+                                                let pos = MC_00.ADD8(pos, 1);
+                                                let col = MC_00.ADD8(col, 1);
+                                            }
+                                        } else {
+                                            let done = 1;
+                                        }
+                                    }
+                                }
+                            } else {
+                                let tokens = push_token(tokens, "OPERATOR", "/", line, col);
+                                let pos = MC_00.ADD8(pos, 1);
+                                let col = MC_00.ADD8(col, 1);
+                            }
+                        } else {
+                            let tokens = push_token(tokens, "OPERATOR", "/", line, col);
+                            let pos = MC_00.ADD8(pos, 1);
+                            let col = MC_00.ADD8(col, 1);
+                        }
+                    } else {
+                        if (is_alpha(ch) == 1) {
+                            let result = scan_word(source, pos, len, col);
+                            let word = result[0];
+                            let pos = result[1];
+                            let col = result[2];
+                            if (is_keyword(word) == 1) {
+                                let tokens = push_token(tokens, "KEYWORD", word, line, MC_01.SUB8(col, MC_43.LEN(word)));
+                            } else {
+                                let tokens = push_token(tokens, "IDENT", word, line, MC_01.SUB8(col, MC_43.LEN(word)));
+                            }
+                        } else {
+                            if (is_digit(ch) == 1) {
+                                let result = scan_number(source, pos, len, col);
+                                let num = result[0];
+                                let pos = result[1];
+                                let col = result[2];
+                                let tokens = push_token(tokens, "NUMBER", num, line, MC_01.SUB8(col, MC_43.LEN(num)));
+                            } else {
+                                if (ch == "\"") {
+                                    let result = scan_string(source, pos, len, line, col);
+                                    let str_val = result[0];
+                                    let pos = result[1];
+                                    let line = result[2];
+                                    let col = result[3];
+                                    let tokens = push_token(tokens, "STRING", str_val, line, MC_01.SUB8(col, MC_00.ADD8(MC_43.LEN(str_val), 2)));
+                                } else {
+                                    if (ch == "=") {
+                                        if (MC_00.ADD8(pos, 1) < len) {
+                                            let n = source.char_at(MC_00.ADD8(pos, 1));
+                                            if (n == "=") {
+                                                let tokens = push_token(tokens, "OPERATOR", "==", line, col);
+                                                let pos = MC_00.ADD8(pos, 2);
+                                                let col = MC_00.ADD8(col, 2);
+                                            } else {
+                                                let tokens = push_token(tokens, "EQUALS", "=", line, col);
+                                                let pos = MC_00.ADD8(pos, 1);
+                                                let col = MC_00.ADD8(col, 1);
+                                            }
+                                        } else {
+                                            let tokens = push_token(tokens, "EQUALS", "=", line, col);
+                                            let pos = MC_00.ADD8(pos, 1);
+                                            let col = MC_00.ADD8(col, 1);
+                                        }
+                                    } else {
+                                        if (ch == "-") {
+                                            if (MC_00.ADD8(pos, 1) < len) {
+                                                let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                if (n == ">") {
+                                                    let tokens = push_token(tokens, "ARROW", "->", line, col);
+                                                    let pos = MC_00.ADD8(pos, 2);
+                                                    let col = MC_00.ADD8(col, 2);
+                                                } else {
+                                                    let tokens = push_token(tokens, "OPERATOR", "-", line, col);
+                                                    let pos = MC_00.ADD8(pos, 1);
+                                                    let col = MC_00.ADD8(col, 1);
+                                                }
+                                            } else {
+                                                let tokens = push_token(tokens, "OPERATOR", "-", line, col);
+                                                let pos = MC_00.ADD8(pos, 1);
+                                                let col = MC_00.ADD8(col, 1);
+                                            }
+                                        } else {
+                                            if (ch == "!") {
+                                                if (MC_00.ADD8(pos, 1) < len) {
+                                                    let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                    if (n == "=") {
+                                                        let tokens = push_token(tokens, "OPERATOR", "!=", line, col);
+                                                        let pos = MC_00.ADD8(pos, 2);
+                                                        let col = MC_00.ADD8(col, 2);
+                                                    } else {
+                                                        let tokens = push_token(tokens, "OPERATOR", "!", line, col);
+                                                        let pos = MC_00.ADD8(pos, 1);
+                                                        let col = MC_00.ADD8(col, 1);
+                                                    }
+                                                } else {
+                                                    let tokens = push_token(tokens, "OPERATOR", "!", line, col);
+                                                    let pos = MC_00.ADD8(pos, 1);
+                                                    let col = MC_00.ADD8(col, 1);
+                                                }
+                                            } else {
+                                                if (ch == "<") {
+                                                    if (MC_00.ADD8(pos, 1) < len) {
+                                                        let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                        if (n == "=") {
+                                                            let tokens = push_token(tokens, "OPERATOR", "<=", line, col);
+                                                            let pos = MC_00.ADD8(pos, 2);
+                                                            let col = MC_00.ADD8(col, 2);
+                                                        } else {
+                                                            let tokens = push_token(tokens, "OPERATOR", "<", line, col);
+                                                            let pos = MC_00.ADD8(pos, 1);
+                                                            let col = MC_00.ADD8(col, 1);
+                                                        }
+                                                    } else {
+                                                        let tokens = push_token(tokens, "OPERATOR", "<", line, col);
+                                                        let pos = MC_00.ADD8(pos, 1);
+                                                        let col = MC_00.ADD8(col, 1);
+                                                    }
+                                                } else {
+                                                    if (ch == ">") {
+                                                        if (MC_00.ADD8(pos, 1) < len) {
+                                                            let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                            if (n == "=") {
+                                                                let tokens = push_token(tokens, "OPERATOR", ">=", line, col);
+                                                                let pos = MC_00.ADD8(pos, 2);
+                                                                let col = MC_00.ADD8(col, 2);
+                                                            } else {
+                                                                let tokens = push_token(tokens, "OPERATOR", ">", line, col);
+                                                                let pos = MC_00.ADD8(pos, 1);
+                                                                let col = MC_00.ADD8(col, 1);
+                                                            }
+                                                        } else {
+                                                            let tokens = push_token(tokens, "OPERATOR", ">", line, col);
+                                                            let pos = MC_00.ADD8(pos, 1);
+                                                            let col = MC_00.ADD8(col, 1);
+                                                        }
+                                                    } else {
+                                                        if (ch == "&") {
+                                                            if (MC_00.ADD8(pos, 1) < len) {
+                                                                let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                                if (n == "&") {
+                                                                    let tokens = push_token(tokens, "OPERATOR", "&&", line, col);
+                                                                    let pos = MC_00.ADD8(pos, 2);
+                                                                    let col = MC_00.ADD8(col, 2);
+                                                                } else {
+                                                                    let tokens = push_token(tokens, "OPERATOR", "&", line, col);
+                                                                    let pos = MC_00.ADD8(pos, 1);
+                                                                    let col = MC_00.ADD8(col, 1);
+                                                                }
+                                                            } else {
+                                                                let tokens = push_token(tokens, "OPERATOR", "&", line, col);
+                                                                let pos = MC_00.ADD8(pos, 1);
+                                                                let col = MC_00.ADD8(col, 1);
+                                                            }
+                                                        } else {
+                                                            if (ch == "|") {
+                                                                if (MC_00.ADD8(pos, 1) < len) {
+                                                                    let n = source.char_at(MC_00.ADD8(pos, 1));
+                                                                    if (n == "|") {
+                                                                        let tokens = push_token(tokens, "OPERATOR", "||", line, col);
+                                                                        let pos = MC_00.ADD8(pos, 2);
+                                                                        let col = MC_00.ADD8(col, 2);
+                                                                    } else {
+                                                                        let tokens = push_token(tokens, "OPERATOR", "|", line, col);
+                                                                        let pos = MC_00.ADD8(pos, 1);
+                                                                        let col = MC_00.ADD8(col, 1);
+                                                                    }
+                                                                } else {
+                                                                    let tokens = push_token(tokens, "OPERATOR", "|", line, col);
+                                                                    let pos = MC_00.ADD8(pos, 1);
+                                                                    let col = MC_00.ADD8(col, 1);
+                                                                }
+                                                            } else {
+                                                                if (ch == "+") {
+                                                                    let tokens = push_token(tokens, "OPERATOR", "+", line, col);
+                                                                    let pos = MC_00.ADD8(pos, 1);
+                                                                    let col = MC_00.ADD8(col, 1);
+                                                                } else {
+                                                                    if (ch == "*") {
+                                                                        let tokens = push_token(tokens, "OPERATOR", "*", line, col);
+                                                                        let pos = MC_00.ADD8(pos, 1);
+                                                                        let col = MC_00.ADD8(col, 1);
+                                                                    } else {
+                                                                        if (ch == "(") {
+                                                                            let tokens = push_token(tokens, "PAREN", "(", line, col);
+                                                                            let pos = MC_00.ADD8(pos, 1);
+                                                                            let col = MC_00.ADD8(col, 1);
+                                                                        } else {
+                                                                            if (ch == ")") {
+                                                                                let tokens = push_token(tokens, "PAREN", ")", line, col);
+                                                                                let pos = MC_00.ADD8(pos, 1);
+                                                                                let col = MC_00.ADD8(col, 1);
+                                                                            } else {
+                                                                                if (ch == "{") {
+                                                                                    let tokens = push_token(tokens, "BRACE", "{", line, col);
+                                                                                    let pos = MC_00.ADD8(pos, 1);
+                                                                                    let col = MC_00.ADD8(col, 1);
+                                                                                } else {
+                                                                                    if (ch == "}") {
+                                                                                        let tokens = push_token(tokens, "BRACE", "}", line, col);
+                                                                                        let pos = MC_00.ADD8(pos, 1);
+                                                                                        let col = MC_00.ADD8(col, 1);
+                                                                                    } else {
+                                                                                        if (ch == "[") {
+                                                                                            let tokens = push_token(tokens, "BRACKET", "[", line, col);
+                                                                                            let pos = MC_00.ADD8(pos, 1);
+                                                                                            let col = MC_00.ADD8(col, 1);
+                                                                                        } else {
+                                                                                            if (ch == "]") {
+                                                                                                let tokens = push_token(tokens, "BRACKET", "]", line, col);
+                                                                                                let pos = MC_00.ADD8(pos, 1);
+                                                                                                let col = MC_00.ADD8(col, 1);
+                                                                                            } else {
+                                                                                                if (ch == ",") {
+                                                                                                    let tokens = push_token(tokens, "COMMA", ",", line, col);
+                                                                                                    let pos = MC_00.ADD8(pos, 1);
+                                                                                                    let col = MC_00.ADD8(col, 1);
+                                                                                                } else {
+                                                                                                    if (ch == ";") {
+                                                                                                        let tokens = push_token(tokens, "SEMICOLON", ";", line, col);
+                                                                                                        let pos = MC_00.ADD8(pos, 1);
+                                                                                                        let col = MC_00.ADD8(col, 1);
+                                                                                                    } else {
+                                                                                                        if (ch == ".") {
+                                                                                                            let tokens = push_token(tokens, "DOT", ".", line, col);
+                                                                                                            let pos = MC_00.ADD8(pos, 1);
+                                                                                                            let col = MC_00.ADD8(col, 1);
+                                                                                                        } else {
+                                                                                                            let tokens = push_token(tokens, "OPERATOR", ch, line, col);
+                                                                                                            let pos = MC_00.ADD8(pos, 1);
+                                                                                                            let col = MC_00.ADD8(col, 1);
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let tokens = push_token(tokens, "EOF", "", line, col);
+        return tokens;
+    }
+
+    let tokens = tokenize(source);
+    OUTPUT tokens;
+}

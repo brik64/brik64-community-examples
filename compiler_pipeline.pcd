@@ -1,0 +1,44 @@
+// BRIK-64 Stage 1 Core Component: Compiler Pipeline
+// Composes multiple compiler-in-PCD components via polymer calls.
+// Demonstrates modular composition: tokenize → classify → generate.
+// This is the fifth compiler-in-PCD component.
+
+PC compiler_pipeline {
+    // Input: a sample PCD statement
+    let source_code = "let x = MC_00.ADD8(a, b);";
+
+    // Step 1: Tokenize the input
+    // Split into rough tokens by space
+    let tokens = MC_41.SPLIT(source_code, " ");
+
+    // Step 2: Classify known tokens inline
+    // Check if first token is a keyword
+    let first_token = MC_42.SUBSTR(source_code, 0, 3);
+    let is_keyword = MC_47.MATCH(first_token, "let");
+
+    // Step 3: Look for monomer references
+    // Search for "MC_" pattern in the input
+    let has_mc_prefix = MC_47.MATCH(source_code, "MC_");
+
+    // Step 4: Generate a simple Rust output skeleton
+    let rust_code = "// Generated from PCD\n";
+    let rust_code = MC_40.CONCAT(rust_code, "fn compiled_");
+    let rust_code = MC_40.CONCAT(rust_code, "pipeline");
+    let rust_code = MC_40.CONCAT(rust_code, "() -> Result<Value, RuntimeError> {\n");
+
+    // Step 5: Add dispatch calls based on analysis
+    if (is_keyword) {
+        let rust_code = MC_40.CONCAT(rust_code, "    // Keyword 'let' detected → variable binding\n");
+    }
+    if (has_mc_prefix) {
+        let rust_code = MC_40.CONCAT(rust_code, "    // Monomer reference detected → dispatch call\n");
+        let rust_code = MC_40.CONCAT(rust_code, "    let result = dispatch.dispatch(monomer_id, &inputs)?;\n");
+    }
+
+    // Close function
+    let rust_code = MC_40.CONCAT(rust_code, "    Ok(result)\n");
+    let rust_code = MC_40.CONCAT(rust_code, "}\n");
+
+    OUTPUT rust_code;
+    return rust_code;
+}

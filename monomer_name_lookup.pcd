@@ -1,0 +1,90 @@
+// BRIK-64 Stage 1 Component: Monomer Name Lookup Table
+// Returns the canonical name string for a given monomer ID (0-63)
+// This is the first compiler-in-PCD component.
+
+PC monomer_name_lookup {
+    let id = 0;
+
+    // Family 0: Arithmetic (MC_00 - MC_07)
+    if (id == 0) { let name = "ADD8"; }
+    if (id == 1) { let name = "SUB8"; }
+    if (id == 2) { let name = "MUL8"; }
+    if (id == 3) { let name = "DIV8"; }
+    if (id == 4) { let name = "INC"; }
+    if (id == 5) { let name = "DEC"; }
+    if (id == 6) { let name = "MOD8"; }
+    if (id == 7) { let name = "NEG8"; }
+
+    // Family 1: Logic (MC_08 - MC_15)
+    if (id == 8) { let name = "AND8"; }
+    if (id == 9) { let name = "OR8"; }
+    if (id == 10) { let name = "XOR8"; }
+    if (id == 11) { let name = "NOT8"; }
+    if (id == 12) { let name = "SHL8"; }
+    if (id == 13) { let name = "SHR8"; }
+    if (id == 14) { let name = "ROL8"; }
+    if (id == 15) { let name = "ROR8"; }
+
+    // Family 2: Memory (MC_16 - MC_23)
+    if (id == 16) { let name = "LOAD"; }
+    if (id == 17) { let name = "STORE"; }
+    if (id == 18) { let name = "PUSH"; }
+    if (id == 19) { let name = "POP"; }
+    if (id == 20) { let name = "PEEK"; }
+    if (id == 21) { let name = "SWAP"; }
+    if (id == 22) { let name = "DUP"; }
+    if (id == 23) { let name = "DROP"; }
+
+    // Family 3: Control (MC_24 - MC_31)
+    if (id == 24) { let name = "JMP"; }
+    if (id == 25) { let name = "LOOP"; }
+    if (id == 26) { let name = "CALL"; }
+    if (id == 27) { let name = "RET"; }
+    if (id == 28) { let name = "IF"; }
+    if (id == 29) { let name = "HALT"; }
+    if (id == 30) { let name = "NOP"; }
+    if (id == 31) { let name = "WAIT"; }
+
+    // Family 4: I/O (MC_32 - MC_39)
+    if (id == 32) { let name = "READ"; }
+    if (id == 33) { let name = "WRITE"; }
+    if (id == 34) { let name = "PRINT"; }
+    if (id == 35) { let name = "INPUT"; }
+    if (id == 36) { let name = "OPEN"; }
+    if (id == 37) { let name = "CLOSE"; }
+    if (id == 38) { let name = "SEEK"; }
+    if (id == 39) { let name = "FLUSH"; }
+
+    // Family 5: Strings (MC_40 - MC_47)
+    if (id == 40) { let name = "CONCAT"; }
+    if (id == 41) { let name = "SPLIT"; }
+    if (id == 42) { let name = "SUBSTR"; }
+    if (id == 43) { let name = "LEN"; }
+    if (id == 44) { let name = "UPPER"; }
+    if (id == 45) { let name = "LOWER"; }
+    if (id == 46) { let name = "TRIM"; }
+    if (id == 47) { let name = "MATCH"; }
+
+    // Family 6: Crypto (MC_48 - MC_55)
+    if (id == 48) { let name = "HASH"; }
+    if (id == 49) { let name = "ENCRYPT"; }
+    if (id == 50) { let name = "DECRYPT"; }
+    if (id == 51) { let name = "SIGN"; }
+    if (id == 52) { let name = "VERIFY"; }
+    if (id == 53) { let name = "DIGEST"; }
+    if (id == 54) { let name = "KEY"; }
+    if (id == 55) { let name = "RNG"; }
+
+    // Family 7: System (MC_56 - MC_63)
+    if (id == 56) { let name = "TIME"; }
+    if (id == 57) { let name = "CPU"; }
+    if (id == 58) { let name = "MEM"; }
+    if (id == 59) { let name = "GETENV"; }
+    if (id == 60) { let name = "EXIT"; }
+    if (id == 61) { let name = "PID"; }
+    if (id == 62) { let name = "LOG"; }
+    if (id == 63) { let name = "ASSERT"; }
+
+    OUTPUT name;
+    return name;
+}

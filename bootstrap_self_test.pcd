@@ -1,0 +1,42 @@
+// bootstrap_self_test.pcd
+// Canonical self-test exercising monomer families for bootstrap verification (Paper VIII)
+// Used for fixed-point hash verification: SHA-256 of generated Rust code must be deterministic
+//
+// Families exercised:
+// - Arithmetic: MC_00 (ADD8), MC_04 (INC)
+// - Logic: MC_08 (AND8), MC_11 (NOT8)
+// - Strings: MC_40 (CONCAT), MC_43 (LEN), MC_46 (TRIM)
+// - Crypto: MC_48 (HASH)
+// - System: MC_56 (TIME)
+//
+// EVA Composition:
+// Serial(Arithmetic, Logic, Strings) then Parallel(Crypto, System)
+//
+// TCE Expected:
+// - Phi_c = 1.0 (all stages bounded)
+// - DeltaN < 0.05 (low noise)
+
+PC bootstrap_self_test {
+    serial {
+        // Arithmetic family
+        MC_00.ADD8(42, 13);
+        MC_04.INC(99);
+
+        // Logic family
+        MC_08.AND8(255, 15);
+        MC_11.NOT8(170);
+
+        // Strings family
+        MC_40.CONCAT("BRIK", "64");
+        MC_43.LEN("bootstrap_test");
+        MC_46.TRIM("canonical");
+
+        // Parallel block: crypto + system
+        parallel {
+            MC_48.HASH("brik_bootstrap_v1");
+            MC_56.TIME();
+        }
+
+        OUTPUT "bootstrap_complete";
+    }
+}

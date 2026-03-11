@@ -1,0 +1,26 @@
+// accumulator.pcd
+// Demonstrates loop + accumulator pattern for Stage 1 bootstrap
+//
+// Pattern: Sum of 1..N using bounded loop
+// This pattern is essential for compiler data processing:
+// - Iterating over token arrays
+// - Accumulating string output in codegen
+// - Counting AST nodes for metrics
+//
+// Monomers: MC_00 (ADD8), MC_04 (INC)
+
+PC accumulator {
+    let n = 20;
+    let sum = 0;
+    let i = 0;
+
+    // Accumulate: sum = 1 + 2 + ... + n
+    loop(n) {
+        let i = MC_04.INC(i);
+        let sum = MC_00.ADD8(sum, i);
+    }
+
+    // Expected: sum = 20 * 21 / 2 = 210
+    OUTPUT sum;
+    return sum;
+}

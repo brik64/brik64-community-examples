@@ -1,0 +1,80 @@
+PC io_lib {
+    fn print(s) {
+        let n = MC_43.LEN(s);
+        MC_58.WRITE(1, s, n);
+        return 0;
+    }
+
+    fn println(s) {
+        let n = MC_43.LEN(s);
+        MC_58.WRITE(1, s, n);
+        MC_58.WRITE(1, "\n", 1);
+        return 0;
+    }
+
+    fn byte_to_char(byte) {
+        if (byte == 10) { return "\n"; }
+        if (byte == 13) { return "\r"; }
+        if (byte == 9) { return "\t"; }
+        if (byte < 32) { return ""; }
+        if (byte > 126) { return ""; }
+        let table = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+        return MC_42.SUBSTR(table, (byte - 32), 1);
+    }
+
+    fn read_line() {
+        let line = MC_63.ENV("STDIN");
+        return line;
+    }
+
+    fn read_file(path) {
+        let fd = MC_34.OPEN(path);
+        if (fd < 0) { return ""; }
+
+        let out = "";
+        let done = 0;
+        loop(4000000) as _i {
+            if (done == 0) {
+                let b = MC_32.READ(fd);
+                if (b == 0) {
+                    let done = 1;
+                } else {
+                    let ch = byte_to_char(b);
+                    let out = MC_40.CONCAT(out, ch);
+                }
+            }
+        }
+        let _closed = MC_35.CLOSE(fd);
+        return out;
+    }
+
+    fn write_file(path, content) {
+        let fd = MC_36.CREAT(path);
+        if (fd < 0) { return -1; }
+        let n = MC_43.LEN(content);
+        let written = MC_58.WRITE(fd, content, n);
+        let _closed = MC_35.CLOSE(fd);
+        return written;
+    }
+
+    fn argv(n) {
+        let key = "ARGV_";
+        let digits = "0123456789";
+        let digit = MC_42.SUBSTR(digits, n, 1);
+        let key = MC_40.CONCAT(key, digit);
+        let val = MC_63.ENV(key);
+        return val;
+    }
+
+    fn env(name) {
+        let val = MC_63.ENV(name);
+        return val;
+    }
+
+    fn exit(code) {
+        OUTPUT code;
+        return code;
+    }
+
+    OUTPUT 0;
+}

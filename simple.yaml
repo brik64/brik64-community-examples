@@ -1,0 +1,6 @@
+# Simple BRIK-64 Example
+# Basic closure specification
+name: simple_example
+io:
+  inputs: []
+  outputs: []

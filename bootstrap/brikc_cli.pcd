@@ -1,0 +1,94 @@
+// BRIK-64 Compiler CLI — brikc_cli.pcd
+//
+// Standalone CLI entry point for the brikc compiler.
+// Reads BRIKC_CMD, BRIKC_INPUT, BRIKC_VERSION from environment.
+//
+// Commands:
+//   version   — print version string
+//   help      — print usage
+//   check     — parse + plan only, report errors
+//   compile   — compile PCD source to BIR (via brikc.pcd pipeline)
+//
+// In the native binary, brikc.pcd handles ARGV_1 and MC_58.WRITE directly.
+// This module provides CLI dispatch and user-facing UX.
+
+PC brikc_cli {
+
+    // === Helpers ===
+
+    fn str_eq(a, b) {
+        if (a == b) { return 1; }
+        return 0;
+    }
+
+    fn str_len(s) {
+        return MC_43.LEN(s);
+    }
+
+    fn write_line(s) {
+        let n = str_len(s);
+        MC_58.WRITE(1, s, n);
+        MC_58.WRITE(1, "\n", 1);
+        return 0;
+    }
+
+    fn write_err(s) {
+        let n = str_len(s);
+        MC_58.WRITE(2, s, n);
+        MC_58.WRITE(2, "\n", 1);
+        return 0;
+    }
+
+    // === Version ===
+
+    fn version_string() {
+        return "brikc 2.0.0 (BRIK-64 Digital Circuitality Compiler)";
+    }
+
+    // === Help text ===
+
+    fn help_text() {
+        let h = "Usage: brikc <command> [options]\n";
+        let h = MC_40.CONCAT(h, "\n");
+        let h = MC_40.CONCAT(h, "Commands:\n");
+        let h = MC_40.CONCAT(h, "  compile <file>    Compile PCD source to BIR\n");
+        let h = MC_40.CONCAT(h, "  check   <file>    Parse and type-check only\n");
+        let h = MC_40.CONCAT(h, "  version           Print compiler version\n");
+        let h = MC_40.CONCAT(h, "  help              Print this help\n");
+        let h = MC_40.CONCAT(h, "\n");
+        let h = MC_40.CONCAT(h, "Environment:\n");
+        let h = MC_40.CONCAT(h, "  ARGV_1            Source file path or PCD source string\n");
+        let h = MC_40.CONCAT(h, "  BRIKC_CMD         CLI command override\n");
+        let h = MC_40.CONCAT(h, "  BRIKC_BOOTSTRAP_DEBUG=1  Enable debug trace\n");
+        return h;
+    }
+
+    // === Entry point ===
+
+    let cmd = MC_63.ENV("BRIKC_CMD");
+    let argv1 = MC_63.ENV("ARGV_1");
+
+    if (str_eq(cmd, "version") == 1) {
+        let w = write_line(version_string());
+        OUTPUT 0;
+    }
+
+    if (str_eq(cmd, "help") == 1) {
+        let h = help_text();
+        let hlen = str_len(h);
+        MC_58.WRITE(1, h, hlen);
+        OUTPUT 0;
+    }
+
+    // Default: compile mode
+    // When ARGV_1 is set, brikc.pcd handles reading + compiling + streaming BIR.
+    // brikc_cli.pcd is the user-facing dispatch wrapper.
+    if (str_len(argv1) == 0) {
+        if (str_len(cmd) == 0) {
+            let w = write_err("brikc: no input file specified.");
+            let w = write_err("Run 'brikc help' for usage.");
+        }
+    }
+
+    OUTPUT 0;
+}

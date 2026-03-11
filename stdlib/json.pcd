@@ -1,0 +1,75 @@
+PC json {
+    fn json_stringify(value) {
+        let out = "\"";
+        let out = MC_40.CONCAT(out, value);
+        let out = MC_40.CONCAT(out, "\"");
+        return out;
+    }
+
+    fn json_parse_int(s) {
+        let trimmed = MC_46.TRIM(s);
+        let n = MC_43.LEN(trimmed);
+        let start = 0;
+        let found = 0;
+        loop(n) as i {
+            if (found == 0) {
+                let ch = MC_45.CHAR_AT(trimmed, i);
+                if ((ch >= "0") && (ch <= "9")) {
+                    let start = i;
+                    let found = 1;
+                }
+            }
+        }
+        if (found == 0) { return 0; }
+
+        let end = start;
+        loop(n) as i {
+            if (i >= start) {
+                let ch = MC_45.CHAR_AT(trimmed, i);
+                if ((ch >= "0") && (ch <= "9")) {
+                    let end = i;
+                }
+            }
+        }
+
+        let digits = MC_42.SUBSTR(trimmed, start, ((end - start) + 1));
+        return digits;
+    }
+
+    fn json_get_field(json_str, field_name) {
+        let key = "\"";
+        let key = MC_40.CONCAT(key, field_name);
+        let key = MC_40.CONCAT(key, "\"");
+        let start = MC_44.FIND(json_str, key);
+        if (start < 0) { return ""; }
+
+        let after_key = MC_00.ADD8(start, MC_43.LEN(key));
+        let rest = MC_42.SUBSTR(json_str, after_key, (MC_43.LEN(json_str) - after_key));
+        let colon = MC_44.FIND(rest, ":");
+        if (colon < 0) { return ""; }
+
+        let value_start = MC_00.ADD8(after_key, MC_00.ADD8(colon, 1));
+        let tail = MC_42.SUBSTR(json_str, value_start, (MC_43.LEN(json_str) - value_start));
+        let trimmed = MC_46.TRIM(tail);
+        let first = MC_45.CHAR_AT(trimmed, 0);
+
+        if (first == "\"") {
+            let body = MC_42.SUBSTR(trimmed, 1, (MC_43.LEN(trimmed) - 1));
+            let end_quote = MC_44.FIND(body, "\"");
+            if (end_quote < 0) { return ""; }
+            return MC_42.SUBSTR(body, 0, end_quote);
+        }
+
+        let comma = MC_44.FIND(trimmed, ",");
+        if (comma >= 0) {
+            return MC_46.TRIM(MC_42.SUBSTR(trimmed, 0, comma));
+        }
+
+        let close = MC_44.FIND(trimmed, "}");
+        if (close >= 0) {
+            return MC_46.TRIM(MC_42.SUBSTR(trimmed, 0, close));
+        }
+
+        return trimmed;
+    }
+}

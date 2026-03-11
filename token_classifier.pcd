@@ -1,0 +1,87 @@
+// BRIK-64 Stage 1 Component: Token Classifier
+// Classifies a string token into a type: keyword, identifier, literal, operator, or punctuation.
+// Uses MATCH chains for keyword detection and character inspection.
+// This is the third compiler-in-PCD component.
+
+PC token_classifier {
+    let token = "let";
+
+    // Check PCD keywords
+    let is_let = MC_47.MATCH(token, "let");
+    let is_if = MC_47.MATCH(token, "if");
+    let is_else = MC_47.MATCH(token, "else");
+    let is_loop = MC_47.MATCH(token, "loop");
+    let is_call = MC_47.MATCH(token, "call");
+    let is_return = MC_47.MATCH(token, "return");
+    let is_output = MC_47.MATCH(token, "OUTPUT");
+    let is_serial = MC_47.MATCH(token, "serial");
+    let is_parallel = MC_47.MATCH(token, "parallel");
+    let is_pc = MC_47.MATCH(token, "PC");
+    let is_as = MC_47.MATCH(token, "as");
+    let is_true = MC_47.MATCH(token, "true");
+    let is_false = MC_47.MATCH(token, "false");
+
+    // Check if token starts with MC_ (monomer reference)
+    let first_three = MC_42.SUBSTR(token, 0, 3);
+    let is_monomer = MC_47.MATCH(first_three, "MC_");
+
+    // Check operators and punctuation
+    let is_eq = MC_47.MATCH(token, "==");
+    let is_ne = MC_47.MATCH(token, "!=");
+    let is_le = MC_47.MATCH(token, "<=");
+    let is_ge = MC_47.MATCH(token, ">=");
+    let is_assign = MC_47.MATCH(token, "=");
+    let is_semi = MC_47.MATCH(token, ";");
+    let is_lparen = MC_47.MATCH(token, "(");
+    let is_rparen = MC_47.MATCH(token, ")");
+    let is_lbrace = MC_47.MATCH(token, "{");
+    let is_rbrace = MC_47.MATCH(token, "}");
+    let is_lbracket = MC_47.MATCH(token, "[");
+    let is_rbracket = MC_47.MATCH(token, "]");
+    let is_comma = MC_47.MATCH(token, ",");
+    let is_dot = MC_47.MATCH(token, ".");
+    let is_plus = MC_47.MATCH(token, "+");
+    let is_minus = MC_47.MATCH(token, "-");
+
+    // Classify: keyword
+    let type = "unknown";
+    if (is_let) { let type = "keyword"; }
+    if (is_if) { let type = "keyword"; }
+    if (is_else) { let type = "keyword"; }
+    if (is_loop) { let type = "keyword"; }
+    if (is_call) { let type = "keyword"; }
+    if (is_return) { let type = "keyword"; }
+    if (is_output) { let type = "keyword"; }
+    if (is_serial) { let type = "keyword"; }
+    if (is_parallel) { let type = "keyword"; }
+    if (is_pc) { let type = "keyword"; }
+    if (is_as) { let type = "keyword"; }
+    if (is_true) { let type = "literal_bool"; }
+    if (is_false) { let type = "literal_bool"; }
+
+    // Classify: monomer reference
+    if (is_monomer) { let type = "monomer_ref"; }
+
+    // Classify: operators
+    if (is_eq) { let type = "operator"; }
+    if (is_ne) { let type = "operator"; }
+    if (is_le) { let type = "operator"; }
+    if (is_ge) { let type = "operator"; }
+    if (is_plus) { let type = "operator"; }
+    if (is_minus) { let type = "operator"; }
+
+    // Classify: punctuation
+    if (is_assign) { let type = "punctuation"; }
+    if (is_semi) { let type = "punctuation"; }
+    if (is_lparen) { let type = "punctuation"; }
+    if (is_rparen) { let type = "punctuation"; }
+    if (is_lbrace) { let type = "punctuation"; }
+    if (is_rbrace) { let type = "punctuation"; }
+    if (is_lbracket) { let type = "punctuation"; }
+    if (is_rbracket) { let type = "punctuation"; }
+    if (is_comma) { let type = "punctuation"; }
+    if (is_dot) { let type = "punctuation"; }
+
+    OUTPUT type;
+    return type;
+}

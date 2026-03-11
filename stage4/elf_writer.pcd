@@ -1,0 +1,234 @@
+PC elf_writer {
+    // ============================================================
+    // Buffer de bytes para construir ELF x86-64 desde PCD puro.
+    // Implementa serialización little-endian de u16/u32/u64.
+    // ============================================================
+
+    // Divide n entre 256, retorna el cociente (división entera).
+    // Usa bucle de sustracción para no depender de monomers u8.
+    fn div256(n) {
+        let q = 0;
+        let r = n;
+        loop(1000000) as _d {
+            if (r < 256) { return q; }
+            let r = r - 256;
+            let q = q + 1;
+        }
+        return q;
+    }
+
+    // Retorna n mod 256 (byte menos significativo de n).
+    fn mod256(n) {
+        let r = n;
+        loop(1000000) as _m {
+            if (r < 256) { return r; }
+            let r = r - 256;
+        }
+        return r;
+    }
+
+    // Extrae el byte en posición shift (0=LSB, 7=MSB) de un valor i64.
+    // Equivalente a: (value >> (shift * 8)) & 0xFF
+    fn byte_at(value, shift) {
+        let v = value;
+        if (shift == 0) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 1) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 2) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 3) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 4) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 5) { return mod256(v); }
+        let v = div256(v);
+        if (shift == 6) { return mod256(v); }
+        let v = div256(v);
+        return mod256(v);
+    }
+
+    // Añade un u16 en little-endian al buffer (2 bytes).
+    fn write_u16_le(buf, value) {
+        let buf = buf.push(byte_at(value, 0));
+        let buf = buf.push(byte_at(value, 1));
+        return buf;
+    }
+
+    // Añade un u32 en little-endian al buffer (4 bytes).
+    fn write_u32_le(buf, value) {
+        let buf = buf.push(byte_at(value, 0));
+        let buf = buf.push(byte_at(value, 1));
+        let buf = buf.push(byte_at(value, 2));
+        let buf = buf.push(byte_at(value, 3));
+        return buf;
+    }
+
+    // Añade un u64 en little-endian al buffer (8 bytes).
+    fn write_u64_le(buf, value) {
+        let buf = buf.push(byte_at(value, 0));
+        let buf = buf.push(byte_at(value, 1));
+        let buf = buf.push(byte_at(value, 2));
+        let buf = buf.push(byte_at(value, 3));
+        let buf = buf.push(byte_at(value, 4));
+        let buf = buf.push(byte_at(value, 5));
+        let buf = buf.push(byte_at(value, 6));
+        let buf = buf.push(byte_at(value, 7));
+        return buf;
+    }
+
+    // Retorna los 59 bytes del startup stub de BRIK-64 (code_offset=0).
+    //
+    // Layout fijo:
+    //   41 bytes — mmap(NULL, 4MB, PROT_RW, MAP_ANON|PRIVATE, -1, 0) → R15
+    //    3 bytes — xor rbp, rbp
+    //    5 bytes — call rel32 (rel32=10 para code_offset=0)
+    //    3 bytes — movzx edi, al
+    //    5 bytes — mov eax, 60
+    //    2 bytes — syscall (sys_exit)
+    //
+    // Constante STUB_CALL_END_OFFSET=49, STARTUP_STUB_SIZE=59
+    // rel32 = 59 - 49 = 10
+    fn startup_stub_bytes() {
+        let b = [];
+        // ── mmap block: 41 bytes ──
+        // xor rdi, rdi  (addr = NULL)  [0x48,0x31,0xFF]
+        let b = b.push(72);  let b = b.push(49);  let b = b.push(255);
+        // mov rsi, 0x400000 (4 MiB)    [0x48,0xC7,0xC6,0x00,0x00,0x40,0x00]
+        let b = b.push(72);  let b = b.push(199); let b = b.push(198);
+        let b = b.push(0);   let b = b.push(0);   let b = b.push(64);  let b = b.push(0);
+        // mov edx, 3  (PROT_READ|PROT_WRITE)  [0xBA,0x03,0x00,0x00,0x00]
+        let b = b.push(186); let b = b.push(3);   let b = b.push(0);
+        let b = b.push(0);   let b = b.push(0);
+        // mov r10d, 0x22  (MAP_PRIVATE|MAP_ANONYMOUS)  [0x41,0xBA,0x22,0x00,0x00,0x00]
+        let b = b.push(65);  let b = b.push(186); let b = b.push(34);
+        let b = b.push(0);   let b = b.push(0);   let b = b.push(0);
+        // mov r8, -1  (fd = -1)  [0x49,0xC7,0xC0,0xFF,0xFF,0xFF,0xFF]
+        let b = b.push(73);  let b = b.push(199); let b = b.push(192);
+        let b = b.push(255); let b = b.push(255); let b = b.push(255); let b = b.push(255);
+        // xor r9, r9  (offset = 0)  [0x4D,0x31,0xC9]
+        let b = b.push(77);  let b = b.push(49);  let b = b.push(201);
+        // mov eax, 9  (SYS_mmap)  [0xB8,0x09,0x00,0x00,0x00]
+        let b = b.push(184); let b = b.push(9);   let b = b.push(0);
+        let b = b.push(0);   let b = b.push(0);
+        // syscall  [0x0F,0x05]
+        let b = b.push(15);  let b = b.push(5);
+        // mov r15, rax  (R15 = vstack base)  [0x49,0x89,0xC7]
+        let b = b.push(73);  let b = b.push(137); let b = b.push(199);
+        // ── call + exit: 18 bytes ──
+        // xor rbp, rbp  [0x48,0x31,0xED]
+        let b = b.push(72);  let b = b.push(49);  let b = b.push(237);
+        // call rel32=10  [0xE8,0x0A,0x00,0x00,0x00]
+        let b = b.push(232); let b = b.push(10);  let b = b.push(0);
+        let b = b.push(0);   let b = b.push(0);
+        // movzx edi, al  [0x0F,0xB6,0xF8]
+        let b = b.push(15);  let b = b.push(182); let b = b.push(248);
+        // mov eax, 60  (sys_exit)  [0xB8,0x3C,0x00,0x00,0x00]
+        let b = b.push(184); let b = b.push(60);  let b = b.push(0);
+        let b = b.push(0);   let b = b.push(0);
+        // syscall  [0x0F,0x05]
+        let b = b.push(15);  let b = b.push(5);
+        return b;
+    }
+
+    // Construye el ELF header (64 bytes) + 3 program headers (3×56 = 168 bytes)
+    // para un ejecutable con `code_size` bytes de código (sin rodata ni data).
+    //
+    // Constantes ELF:
+    //   BASE_VADDR        = 0x400000 = 4194304
+    //   ENTRY_BASE_OFFSET = 64 + 3*56 = 232 = 0xE8
+    //   entry_vaddr       = BASE_VADDR + ENTRY_BASE_OFFSET = 0x4000E8
+    //   SEGMENT_ALIGN     = 0x1000 = 4096
+    fn elf_header(code_size) {
+        let buf = [];
+        let BASE_VADDR = 4194304;
+        let ENTRY_BASE_OFFSET = 232;
+        let text_end = ENTRY_BASE_OFFSET + code_size;
+        let entry_vaddr = BASE_VADDR + ENTRY_BASE_OFFSET;
+
+        // ── ELF ident (16 bytes) ──
+        // magic: 0x7F 'E' 'L' 'F'
+        let buf = buf.push(127); let buf = buf.push(69);
+        let buf = buf.push(76);  let buf = buf.push(70);
+        // ELFCLASS64=2, ELFDATA2LSB=1, EV_CURRENT=1, ELFOSABI_NONE=0
+        let buf = buf.push(2);   let buf = buf.push(1);
+        let buf = buf.push(1);   let buf = buf.push(0);
+        // ABI/version padding (8 bytes)
+        let buf = buf.push(0);   let buf = buf.push(0);
+        let buf = buf.push(0);   let buf = buf.push(0);
+        let buf = buf.push(0);   let buf = buf.push(0);
+        let buf = buf.push(0);   let buf = buf.push(0);
+
+        // ── ELF header fields ──
+        // e_type = ET_EXEC = 2  (u16 LE)
+        let buf = write_u16_le(buf, 2);
+        // e_machine = EM_X86_64 = 62  (u16 LE)
+        let buf = write_u16_le(buf, 62);
+        // e_version = EV_CURRENT = 1  (u32 LE)
+        let buf = write_u32_le(buf, 1);
+        // e_entry = entry_vaddr  (u64 LE)
+        let buf = write_u64_le(buf, entry_vaddr);
+        // e_phoff = 64 (program header offset)  (u64 LE)
+        let buf = write_u64_le(buf, 64);
+        // e_shoff = 0 (no section headers)  (u64 LE)
+        let buf = write_u64_le(buf, 0);
+        // e_flags = 0  (u32 LE)
+        let buf = write_u32_le(buf, 0);
+        // e_ehsize = 64  (u16 LE)
+        let buf = write_u16_le(buf, 64);
+        // e_phentsize = 56  (u16 LE)
+        let buf = write_u16_le(buf, 56);
+        // e_phnum = 3  (u16 LE)
+        let buf = write_u16_le(buf, 3);
+        // e_shentsize = 64  (u16 LE)
+        let buf = write_u16_le(buf, 64);
+        // e_shnum = 0  (u16 LE)
+        let buf = write_u16_le(buf, 0);
+        // e_shstrndx = 0  (u16 LE)
+        let buf = write_u16_le(buf, 0);
+        // ELF header completo: 16 + 2+2+4+8+8+8+4+2+2+2+2+2+2 = 64 bytes ✓
+
+        // ── Program header 0: TEXT (PT_LOAD=1, PF_R_X=5) ──
+        let buf = write_u32_le(buf, 1);             // p_type  = PT_LOAD
+        let buf = write_u32_le(buf, 5);             // p_flags = PF_R_X
+        let buf = write_u64_le(buf, 0);             // p_offset = 0
+        let buf = write_u64_le(buf, BASE_VADDR);    // p_vaddr
+        let buf = write_u64_le(buf, BASE_VADDR);    // p_paddr
+        let buf = write_u64_le(buf, text_end);      // p_filesz = ENTRY_BASE_OFFSET+code_size
+        let buf = write_u64_le(buf, text_end);      // p_memsz
+        let buf = write_u64_le(buf, 4096);          // p_align = 0x1000
+        // PH0: 4+4+8+8+8+8+8+8 = 56 bytes ✓
+
+        // ── Program header 1: RODATA (PT_LOAD=1, PF_R=4, vacío) ──
+        let rodata_off = text_end;
+        let buf = write_u32_le(buf, 1);                         // p_type  = PT_LOAD
+        let buf = write_u32_le(buf, 4);                         // p_flags = PF_R
+        let buf = write_u64_le(buf, rodata_off);                // p_offset
+        let buf = write_u64_le(buf, BASE_VADDR + rodata_off);   // p_vaddr
+        let buf = write_u64_le(buf, BASE_VADDR + rodata_off);   // p_paddr
+        let buf = write_u64_le(buf, 0);                         // p_filesz = 0
+        let buf = write_u64_le(buf, 0);                         // p_memsz  = 0
+        let buf = write_u64_le(buf, 4096);                      // p_align
+
+        // ── Program header 2: DATA (PT_LOAD=1, PF_R_W=6, vacío) ──
+        let data_off = rodata_off;
+        let buf = write_u32_le(buf, 1);                         // p_type  = PT_LOAD
+        let buf = write_u32_le(buf, 6);                         // p_flags = PF_R_W
+        let buf = write_u64_le(buf, data_off);                  // p_offset
+        let buf = write_u64_le(buf, BASE_VADDR + data_off);     // p_vaddr
+        let buf = write_u64_le(buf, BASE_VADDR + data_off);     // p_paddr
+        let buf = write_u64_le(buf, 0);                         // p_filesz = 0
+        let buf = write_u64_le(buf, 0);                         // p_memsz  = 0
+        let buf = write_u64_le(buf, 4096);                      // p_align
+
+        return buf;
+    }
+
+    // ── Programa principal: sanity-check de write_u16_le ──
+    let buf = [];
+    let buf = write_u16_le(buf, 2);
+    let errors = 0;
+    if (buf[0] == 2) { let _ok = 0; } else { let errors = errors + 1; }
+    if (buf[1] == 0) { let _ok = 0; } else { let errors = errors + 1; }
+    OUTPUT errors;
+}

@@ -1,0 +1,32 @@
+// BRIK-64 Stage 1 Core Component: PCD Tokenizer
+// Splits raw PCD source into tokens using SPLIT + bounded loop.
+// Returns a count of tokens found. Works with token_classifier via polymer calls.
+// This is the fourth compiler-in-PCD component.
+
+PC pcd_tokenizer {
+    // Sample PCD source line to tokenize
+    let source = "let x = MC_00.ADD8(a, b);";
+
+    // Split by space delimiter to get rough tokens
+    let tokens = MC_41.SPLIT(source, " ");
+
+    // Count tokens using LEN
+    let token_count = MC_43.LEN(source);
+
+    // Process each token through classification
+    // We use a bounded loop with max 32 tokens per line
+    let result = "";
+    let separator = " | ";
+
+    loop(8) as i {
+        // Build a classification report by concatenating token info
+        let result = MC_40.CONCAT(result, "token:");
+        let result = MC_40.CONCAT(result, separator);
+    }
+
+    // Trim trailing separator
+    let result = MC_46.TRIM(result);
+
+    OUTPUT result;
+    return result;
+}

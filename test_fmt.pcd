@@ -1,0 +1,14 @@
+// test_fmt.pcd — Valida stdlib/fmt.pcd (fmt_i64_to_str, fmt_cat, fmt_cat3)
+// brikc run test_fmt.pcd
+// Esperado: "42|-7|0|hello world|a-b-c"
+
+import "../stdlib/fmt.pcd"
+
+PC test_fmt {
+    let s42  = fmt_i64_to_str(42);
+    let sn7  = fmt_i64_to_str(-7);
+    let s0   = fmt_i64_to_str(0);
+    let cat  = fmt_cat("hello ", "world");
+    let cat3 = fmt_cat3("a", "-b", "-c");
+    return [s42, sn7, s0, cat, cat3];
+}

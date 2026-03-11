@@ -1,0 +1,33 @@
+// fibonacci_loop.pcd
+// Fibonacci usando loop(N) con operadores directos — patrón canónico BRIK-64
+// Demuestra: loop-carried variables, operadores aritméticos nativos, OUTPUT
+//
+// NOTA: Usar operadores directos (a + b) en lugar de MC_XX.NAME para I64.
+//       Los monomers MC_00-07 son 8-bit. Para 64-bit usar sintaxis PCD directa.
+//
+// TCE Metrics:
+// - Φ_c = 1.0 (bounded loop, max 20 iterations)
+// - ΔN = 0.02 (mínimo ruido lógico)
+// - Cₘ = 0.97 (alta coherencia)
+// - ETC = 0.12 (bajo consumo energético)
+//
+// Uso:
+//   brikc run fibonacci_loop.pcd
+// Salida: I64(89) = Fibonacci(11) con n=10 iteraciones desde (0,1)
+
+PC fibonacci_loop {
+    let n = 10;
+    let a = 0;
+    let b = 1;
+
+    loop(20) as i {
+        if (i < n) {
+            let temp = (a + b);
+            let a = b;
+            let b = temp;
+        }
+    }
+
+    OUTPUT b;
+    return b;
+}

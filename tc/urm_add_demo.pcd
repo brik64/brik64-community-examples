@@ -1,0 +1,108 @@
+PC tc_urm_add_demo {
+  fn array_concat(a, b) {
+    let out = [];
+    let an = a.len();
+    loop(an) as i {
+      let out = out.push(a[i]);
+    }
+    let bn = b.len();
+    loop(bn) as j {
+      let out = out.push(b[j]);
+    }
+    return out;
+  }
+
+  fn array_set(a, idx, value) {
+    let left = [];
+    let n = a.len();
+    loop(n) as i {
+      if (i < idx) {
+        let left = left.push(a[i]);
+      }
+    }
+
+    let right = [];
+    loop(n) as i {
+      if (i > idx) {
+        let right = right.push(a[i]);
+      }
+    }
+
+    let mid = [value];
+    return array_concat(array_concat(left, mid), right);
+  }
+
+  fn reg_get(regs, idx) {
+    let n = regs.len();
+    if (idx >= n) {
+      return 0;
+    }
+    return regs[idx];
+  }
+
+  fn reg_set(regs, idx, value) {
+    let out = regs;
+    let n = out.len();
+    if (idx >= n) {
+      let need = ((idx - n) + 1);
+      loop(need) as _k {
+        let out = out.push(0);
+      }
+    }
+    let out = array_set(out, idx, value);
+    return out;
+  }
+
+  fn urm_add(x, y, step_budget) {
+    // URM encoding: [op, a, b]
+    // op 1=INC(a), 2=DECJZ(a,b), 3=HALT, 4=JMP(b)
+    let prog = [];
+    let prog = prog.push([2, 1, 4]); // if R1==0 goto HALT, else R1--
+    let prog = prog.push([1, 0, 0]); // R0++
+    let prog = prog.push([4, 0, 0]); // goto 0
+    let prog = prog.push([1, 2, 0]); // spare no-op path
+    let prog = prog.push([3, 0, 0]); // HALT
+
+    let regs = [];
+    let regs = reg_set(regs, 0, x);
+    let regs = reg_set(regs, 1, y);
+
+    let pc = 0;
+    let halted = 0;
+    loop(step_budget) as _step {
+      if (halted == 1) { break; }
+      let inst = prog[pc];
+      let op = inst[0];
+      let a = inst[1];
+      let b = inst[2];
+
+      if (op == 1) {
+        let v = reg_get(regs, a);
+        let regs = reg_set(regs, a, (v + 1));
+        let pc = (pc + 1);
+      }
+
+      if (op == 2) {
+        let v = reg_get(regs, a);
+        if (v == 0) {
+          let pc = b;
+        } else {
+          let regs = reg_set(regs, a, (v - 1));
+          let pc = (pc + 1);
+        }
+      }
+
+      if (op == 4) {
+        let pc = b;
+      }
+
+      if (op == 3) {
+        let halted = 1;
+      }
+    }
+
+    return reg_get(regs, 0);
+  }
+
+  OUTPUT urm_add(7, 5, 1024);
+}

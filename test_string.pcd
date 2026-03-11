@@ -1,0 +1,20 @@
+// test_string.pcd — Valida stdlib/string.pcd
+// brikc run test_string.pcd
+// Esperado: "13 1 0 Hi World 3 a-b-c" (concatenado como verificación)
+
+import "../stdlib/string.pcd"
+
+PC test_string {
+    let s = "Hello, World!";
+    let l = str_len(s);
+
+    let found = str_contains(s, "World");
+    let notfound = str_contains(s, "xyz");
+    let replaced = str_replace_first("Hi there", "there", "World");
+    let parts = str_split_space("a b c");
+    let plen = parts.len();
+    let joined = str_join(parts, "-");
+
+    // Devolver array con todos los resultados para verificación
+    return [l, found, notfound, replaced, plen, joined];
+}

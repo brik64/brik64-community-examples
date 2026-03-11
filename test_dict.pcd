@@ -1,0 +1,22 @@
+// test_dict.pcd — Valida stdlib/dict.pcd
+// brikc run test_dict.pcd
+// Esperado: [0, "alice", 1, 0, 2]
+// dict_size=0, get alice=30 (wait actually alice=30)
+// Actually: [0, 30, 1, 0, 2]
+
+import "../stdlib/dict.pcd"
+
+PC test_dict {
+    let d = dict_new();
+    let size0 = dict_size(d);
+
+    let d = dict_set(d, "alice", 30);
+    let d = dict_set(d, "bob", 25);
+
+    let age_alice = dict_get(d, "alice", -1);
+    let has_bob   = dict_has(d, "bob");
+    let has_carol = dict_has(d, "carol");
+    let size2     = dict_size(d);
+
+    return [size0, age_alice, has_bob, has_carol, size2];
+}

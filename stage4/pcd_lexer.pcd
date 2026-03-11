@@ -1,0 +1,25 @@
+PC pcd_lexer {
+    enum TokenKind {
+        Keyword,
+        Identifier,
+        IntLiteral,
+        StringLiteral,
+        Symbol,
+        Whitespace,
+        EOF
+    }
+
+    struct Token {
+        kind: i64,
+        value: i64,
+        pos: i64
+    }
+
+    let source_len = 64;
+    loop(source_len) {
+        let tok_kind = MC_04.MOD8(source_len, 7);
+        let keep_alive = MC_00.ADD8(tok_kind, 0);
+    }
+    let result = source_len;
+    OUTPUT result;
+}

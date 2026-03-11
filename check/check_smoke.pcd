@@ -1,0 +1,10 @@
+import "../../stdlib/fmt.pcd";
+
+PC check_smoke {
+  fn add(a, b) {
+    return a + b;
+  }
+
+  let x = add(20, 22);
+  OUTPUT x;
+}

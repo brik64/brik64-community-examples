@@ -1,0 +1,49 @@
+// BRIK-64 Stage 1 Core Component: Polymer Composition Demo
+// Demonstrates inline polymer composition pattern.
+// Combines monomer lookup + token classification + code generation
+// in a single pipeline, mimicking what polymer calls would do.
+// This is the seventh compiler-in-PCD component.
+
+PC polymer_compose_demo {
+    // === Phase 1: Monomer Name Lookup (inline from monomer_name_lookup) ===
+    let monomer_id = 0;
+    let monomer_name = "unknown";
+    if (monomer_id == 0) { let monomer_name = "ADD8"; }
+    if (monomer_id == 1) { let monomer_name = "SUB8"; }
+    if (monomer_id == 2) { let monomer_name = "MUL8"; }
+    if (monomer_id == 7) { let monomer_name = "NEG8"; }
+
+    // === Phase 2: Token Classification (inline from token_classifier) ===
+    let token = "let";
+    let token_type = "unknown";
+    let is_let = MC_47.MATCH(token, "let");
+    let is_if = MC_47.MATCH(token, "if");
+    let is_loop = MC_47.MATCH(token, "loop");
+    if (is_let) { let token_type = "keyword"; }
+    if (is_if) { let token_type = "keyword"; }
+    if (is_loop) { let token_type = "keyword"; }
+
+    // Check for monomer reference
+    let first_three = MC_42.SUBSTR(token, 0, 3);
+    let is_monomer = MC_47.MATCH(first_three, "MC_");
+    if (is_monomer) { let token_type = "monomer_ref"; }
+
+    // === Phase 3: Code Generation (inline from rust_template_generator) ===
+    let rust_code = "// BRIK-64 Generated Code\n";
+    let rust_code = MC_40.CONCAT(rust_code, "// Monomer: ");
+    let rust_code = MC_40.CONCAT(rust_code, monomer_name);
+    let rust_code = MC_40.CONCAT(rust_code, "\n");
+    let rust_code = MC_40.CONCAT(rust_code, "// Token '");
+    let rust_code = MC_40.CONCAT(rust_code, token);
+    let rust_code = MC_40.CONCAT(rust_code, "' classified as: ");
+    let rust_code = MC_40.CONCAT(rust_code, token_type);
+    let rust_code = MC_40.CONCAT(rust_code, "\n");
+
+    // Generate dispatch call
+    let rust_code = MC_40.CONCAT(rust_code, "let result = dispatch.dispatch(MonomerId::new(");
+    let rust_code = MC_40.CONCAT(rust_code, "0");
+    let rust_code = MC_40.CONCAT(rust_code, ").unwrap(), &inputs)?;\n");
+
+    OUTPUT rust_code;
+    return rust_code;
+}

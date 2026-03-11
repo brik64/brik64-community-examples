@@ -1,0 +1,121 @@
+// BRIK-64 Demo: AST builder in PCD Core v1
+// Builds a small AST from a simplified token stream.
+
+PC self_pcd_ast_builder {
+    enum NodeKind {
+        Let,
+        Call,
+        Serial,
+        If,
+        Unknown
+    }
+
+    struct LetNode {
+        kind: string,
+        name: string,
+        value_kind: string
+    }
+
+    struct CallNode {
+        kind: string,
+        callee: string,
+        arg_a: string,
+        arg_b: string
+    }
+
+    struct IfNode {
+        kind: string,
+        condition_var: string,
+        op: string,
+        rhs: string,
+        then_kind: string,
+        else_kind: string
+    }
+
+    struct SerialNode {
+        kind: string,
+        first_let: LetNode,
+        first_call: CallNode,
+        guard_if: IfNode,
+        node_count: i64
+    }
+
+    fn build_ast(tokens) {
+        let _k0 = NodeKind::Let;
+        let _k1 = NodeKind::Call;
+        let _k2 = NodeKind::Serial;
+        let _k3 = NodeKind::If;
+        let _k4 = NodeKind::Unknown;
+
+        let let_node = LetNode { kind: "Unknown", name: "?", value_kind: "?" };
+        let call_node = CallNode { kind: "Unknown", callee: "?", arg_a: "?", arg_b: "?" };
+        let if_node = IfNode {
+            kind: "Unknown",
+            condition_var: "?",
+            op: "?",
+            rhs: "?",
+            then_kind: "None",
+            else_kind: "None"
+        };
+
+        let t0 = tokens[0];
+        match t0 {
+            "LET" => {
+                let let_node = LetNode { kind: "Let", name: tokens[1], value_kind: tokens[3] };
+            },
+            _ => {
+                let let_node = LetNode { kind: "Unknown", name: "_", value_kind: "_" };
+            }
+        }
+
+        let t3 = tokens[3];
+        match t3 {
+            "CALL" => {
+                let call_node = CallNode {
+                    kind: "Call",
+                    callee: tokens[4],
+                    arg_a: tokens[5],
+                    arg_b: tokens[6]
+                };
+            },
+            _ => {
+                let call_node = CallNode { kind: "Unknown", callee: "_", arg_a: "_", arg_b: "_" };
+            }
+        }
+
+        let t8 = tokens[8];
+        if (t8 == "IF") {
+            let if_node = IfNode {
+                kind: "If",
+                condition_var: tokens[9],
+                op: tokens[10],
+                rhs: tokens[11],
+                then_kind: "Output",
+                else_kind: "Return"
+            };
+        }
+
+        let ast = SerialNode {
+            kind: "Serial",
+            first_let: let_node,
+            first_call: call_node,
+            guard_if: if_node,
+            node_count: 3
+        };
+
+        let bound_name = ast.first_let.name;
+        let callee_name = ast.first_call.callee;
+        let guard_var = ast.guard_if.condition_var;
+
+        OUTPUT bound_name;
+        OUTPUT callee_name;
+        OUTPUT guard_var;
+
+        return ast;
+    }
+
+    let tokens = ["LET", "result", "=", "CALL", "MC_02.ADD8", "x", "y", ";", "IF", "result", ">", "0"];
+    let ast = build_ast(tokens);
+    OUTPUT ast.node_count;
+    return ast;
+}

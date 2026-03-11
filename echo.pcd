@@ -1,0 +1,45 @@
+// echo.pcd
+// Read input and write output
+// Demonstrates controlled external interaction maintaining Φ_c = 1
+//
+// Monomers used:
+// - MC_32 (READ): Bounded input read (max 512 bytes)
+// - MC_33 (WRITE): Bounded output write
+// - MC_43 (LEN): String length calculation
+//
+// TCE Metrics:
+// - Φ_c = 1.0 (I/O bounded to 512 bytes)
+// - ΔN = 0.02 (very low noise)
+// - Cₘ = 0.88 (high coherence)
+// - ETC = 0.25 (low energy)
+//
+// Architecture Note:
+// This demonstrates the "core never touches chaos directly" principle.
+// External I/O is wrapped in bounded monomers (MC_32, MC_33) that
+// maintain circuit closure through explicit size limits.
+//
+// Example usage:
+// Input: "Hello, BRIK-64!"
+// Output: "Hello, BRIK-64!" (echoed)
+// Return: 15 (bytes written)
+
+PC echo {
+    // Read input with bounded buffer (max 512 bytes ensures Φ_c = 1)
+    let input_data = MC_32.READ();
+
+    // Calculate input length for verification
+    let input_length = MC_43.LEN(input_data);
+
+    // Write to output (bounded operation)
+    let bytes_written = MC_33.WRITE(input_data);
+
+    // Parallel output of data and metadata
+    parallel {
+        OUTPUT input_data;
+        OUTPUT input_length;
+        OUTPUT bytes_written;
+    }
+
+    // Return bytes written as result
+    return bytes_written;
+}

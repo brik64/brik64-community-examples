@@ -1,0 +1,180 @@
+# String Processing Example
+#
+# Demonstrates string manipulation using string family monomers (MC_40-MC_47).
+# This example performs common string operations: concatenation, splitting, and substring extraction.
+#
+# Monomers used:
+# - MC_40 (CONCAT): String concatenation
+# - MC_41 (SPLIT): String splitting by delimiter
+# - MC_42 (SUBSTR): Substring extraction
+# - MC_43 (LEN): String length calculation
+# - MC_44 (UPPER): Convert to uppercase
+# - MC_45 (LOWER): Convert to lowercase
+# - MC_46 (TRIM): Remove whitespace
+# - MC_47 (MATCH): Pattern matching
+#
+# Workflow:
+# 1. Concatenate two input strings
+# 2. Calculate length of result
+# 3. Extract substring from concatenated string
+# 4. Convert substring to uppercase
+# 5. Trim whitespace from result
+# 6. Output processed string
+
+name: string_processing_example
+description: Demonstrates string manipulation operations
+
+inputs:
+  - name: string1
+    type: String
+    description: First input string
+    max_size: 256  # Bounded domain for Φ_c = 1
+
+  - name: string2
+    type: String
+    description: Second input string
+    max_size: 256
+
+  - name: start_index
+    type: u8
+    description: Starting index for substring extraction
+    range: [0, 255]
+
+  - name: length
+    type: u8
+    description: Length of substring to extract
+    range: [1, 100]
+
+outputs:
+  - name: processed_string
+    type: String
+    description: Final processed string (uppercase, trimmed)
+
+  - name: string_length
+    type: u8
+    description: Length of concatenated string
+
+  - name: match_found
+    type: u8
+    description: Pattern match result (1 = found, 0 = not found)
+
+operations:
+  # Step 1: Concatenate two strings (MC_40)
+  - monomer: CONCAT
+    id: MC_40
+    inputs:
+      - string1
+      - string2
+    outputs:
+      - concatenated
+    description: Concatenate input strings
+    preconditions:
+      - len(string1) + len(string2) <= 512  # Ensure bounded output
+
+  # Step 2: Calculate length (MC_43)
+  - monomer: LEN
+    id: MC_43
+    inputs:
+      - concatenated
+    outputs:
+      - string_length
+    description: Get length of concatenated string
+
+  # Step 3: Extract substring (MC_42)
+  - monomer: SUBSTR
+    id: MC_42
+    inputs:
+      - concatenated
+      - start_index
+      - length
+    outputs:
+      - substring
+    description: Extract substring from concatenated string
+    preconditions:
+      - start_index < len(concatenated)
+      - start_index + length <= len(concatenated)
+
+  # Step 4: Convert to uppercase (MC_44)
+  - monomer: UPPER
+    id: MC_44
+    inputs:
+      - substring
+    outputs:
+      - uppercase_substring
+    description: Convert substring to uppercase
+
+  # Step 5: Trim whitespace (MC_46)
+  - monomer: TRIM
+    id: MC_46
+    inputs:
+      - uppercase_substring
+    outputs:
+      - trimmed_result
+    description: Remove leading/trailing whitespace
+
+  # Step 6: Convert to lowercase for comparison (MC_45)
+  - monomer: LOWER
+    id: MC_45
+    inputs:
+      - trimmed_result
+    outputs:
+      - lowercase_result
+    description: Convert to lowercase for pattern matching
+
+  # Step 7: Pattern matching (MC_47)
+  - monomer: MATCH
+    id: MC_47
+    inputs:
+      - lowercase_result
+      - pattern: "test"  # Static pattern for verification
+    outputs:
+      - match_found
+    description: Check if pattern exists in string
+
+  # Final output assignment
+  - monomer: CONCAT
+    id: MC_40
+    inputs:
+      - trimmed_result
+      - ""  # Empty string (no-op for final output)
+    outputs:
+      - processed_string
+    description: Assign final processed string
+
+# Limits for circuit closure (Φ_c = 1)
+limits:
+  max_string_length: 512  # Maximum total string length
+  max_iterations: 1       # No loops in this example
+  max_recursion_depth: 0  # No recursion
+
+# Energy budget for TCE validation
+energy_budget: 8000  # Higher budget for string operations
+
+# Expected TCE metrics
+expected_metrics:
+  phi_c: 1.0        # Circuit closure (mandatory)
+  delta_n: 0.03     # Logical noise (< 0.05 target)
+  c_m: 0.88         # Coherence modularity (0.7-0.95 range)
+  etc: 0.45         # Energy-to-coherence ratio (< 0.5 target)
+
+# Example usage:
+# Input:
+#   string1 = "Hello, "
+#   string2 = "World!"
+#   start_index = 0
+#   length = 5
+#
+# Expected output:
+#   processed_string = "HELLO"
+#   string_length = 13
+#   match_found = 0 (pattern "test" not found)
+#
+# Workflow:
+# 1. CONCAT("Hello, ", "World!") → "Hello, World!"
+# 2. LEN("Hello, World!") → 13
+# 3. SUBSTR("Hello, World!", 0, 5) → "Hello"
+# 4. UPPER("Hello") → "HELLO"
+# 5. TRIM("HELLO") → "HELLO"
+# 6. LOWER("HELLO") → "hello"
+# 7. MATCH("hello", "test") → 0
+# 8. Final output: processed_string = "HELLO"

@@ -1,0 +1,85 @@
+// TCE — Thermodynamic Coherence Engine in PCD
+// Fixed-point arithmetic: values × 10000 (4 decimal places)
+// E.g., 10000 = 1.0000, 9500 = 0.9500
+// Uses native PCD arithmetic (not MC_00-03 which are 8-bit)
+
+PC tce {
+
+    // === Energy Table ===
+    fn energy_of(mc_id) {
+        if (mc_id < 8)  { return 10000; }
+        if (mc_id < 16) { return 8000; }
+        if (mc_id < 24) { return 12000; }
+        if (mc_id < 32) { return 15000; }
+        if (mc_id < 40) { return 20000; }
+        if (mc_id < 48) { return 11000; }
+        if (mc_id < 56) { return 25000; }
+        if (mc_id < 64) { return 18000; }
+        return 10000;
+    }
+
+    // === Compute total energy of a program ===
+    fn compute_energy(mc_ids) {
+        let total = 0;
+        let n = mc_ids.len();
+        loop(n) as i {
+            let e = energy_of(mc_ids[i]);
+            let total = total + e;
+        }
+        return total;
+    }
+
+    // === Compute structural coherence ===
+    // C_s = valid_count / total × 10000
+    fn compute_coherence_structural(mc_ids) {
+        let n = mc_ids.len();
+        if (n == 0) { return 10000; }
+
+        let valid = 0;
+        loop(n) as i {
+            if (mc_ids[i] < 64) {
+                let valid = valid + 1;
+            }
+        }
+
+        let numerator = valid * 10000;
+        let cs = numerator / n;
+        return cs;
+    }
+
+    // === Compute circuit closure Phi_c ===
+    fn compute_phi(has_input, has_output) {
+        if (has_output == 1) { return 10000; }
+        return 0;
+    }
+
+    // === ETC (Effective Thermodynamic Cost) ===
+    fn compute_etc(energy, coherence, phi) {
+        if (phi == 0) { return 99999999; }
+        if (coherence == 0) { return 99999999; }
+
+        let denom = coherence * phi / 10000;
+        if (denom == 0) { return 99999999; }
+
+        let etc = energy * 10000 / denom;
+        return etc;
+    }
+
+    // === Main certification function ===
+    fn certify(mc_ids, has_output) {
+        let phi = compute_phi(1, has_output);
+        if (phi < 9500) { return 0; }
+
+        let cs = compute_coherence_structural(mc_ids);
+        if (cs < 9500) { return 0; }
+
+        let energy = compute_energy(mc_ids);
+        let etc = compute_etc(energy, cs, phi);
+
+        if (etc > 50000) { return 0; }
+
+        return 1;
+    }
+
+    OUTPUT 0;
+}

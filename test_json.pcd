@@ -1,0 +1,17 @@
+// test_json.pcd — Valida stdlib/json.pcd
+// brikc run test_json.pcd
+// Esperado:
+//   "hello"
+//   ["a","b","c"]
+//   {"name":"alice"}
+//   {"age":42}
+
+import "../stdlib/json.pcd"
+
+PC test_json {
+    let q    = json_quote("hello");
+    let arr  = json_emit_string_array(["a", "b", "c"]);
+    let kv_s = json_emit_kv_str("name", "alice");
+    let kv_i = json_emit_kv_i64("age", 42);
+    return [q, arr, kv_s, kv_i];
+}

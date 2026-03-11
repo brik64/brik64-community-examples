@@ -1,0 +1,13 @@
+// test_io.pcd — Valida stdlib/io.pcd (solo io_byte_to_char, sin I/O real)
+// brikc run test_io.pcd
+// Esperado: ["A", "a", "\n", " "]
+
+import "../stdlib/io.pcd"
+
+PC test_io {
+    let ca = io_byte_to_char(65);
+    let cl = io_byte_to_char(97);
+    let cn = io_byte_to_char(10);
+    let cs = io_byte_to_char(32);
+    return [ca, cl, cn, cs];
+}

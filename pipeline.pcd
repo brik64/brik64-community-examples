@@ -1,0 +1,81 @@
+// pipeline.pcd
+// Multi-stage data processing pipeline
+// Demonstrates serial and parallel composition (⊗ and ∥ operators)
+//
+// Monomers used:
+// - MC_46 (TRIM): Remove whitespace
+// - MC_44 (UPPER): Convert to uppercase
+// - MC_45 (LOWER): Convert to lowercase
+// - MC_48 (HASH): Compute SHA-256 hash
+// - MC_43 (LEN): String length
+// - MC_40 (CONCAT): String concatenation
+//
+// EVA Composition:
+// TRIM ⊗ UPPER ⊗ HASH ⊗ (LEN ∥ CONCAT ∥ OUTPUT)
+// (Serial processing followed by parallel output)
+//
+// TCE Metrics:
+// - Φ_c = 1.0 (all stages bounded)
+// - ΔN = 0.04 (low noise across pipeline)
+// - Cₘ = 0.85 (good coherence)
+// - ETC = 0.42 (moderate energy)
+//
+// Pipeline stages:
+// 1. Trim whitespace (serial)
+// 2. Convert to uppercase (serial)
+// 3. Compute hash (serial)
+// 4. Get length (serial)
+// 5. Parallel output of all results
+//
+// Example usage:
+// Input: "  Hello, World!  "
+// Stage 1: "Hello, World!" (trimmed)
+// Stage 2: "HELLO, WORLD!" (uppercase)
+// Stage 3: SHA-256 hash
+// Stage 4: Length = 13
+// Output: All results in parallel
+
+PC data_pipeline {
+    // Input data with leading/trailing whitespace
+    let raw_data = "  Hello, BRIK-64 Digital Circuitality!  ";
+
+    // Stage 1: Serial processing pipeline
+    serial {
+        // Step 1: Trim whitespace
+        let trimmed = MC_46.TRIM(raw_data);
+        OUTPUT "Stage 1 complete: Trimmed";
+
+        // Step 2: Convert to uppercase
+        let uppercase = MC_44.UPPER(trimmed);
+        OUTPUT "Stage 2 complete: Uppercase";
+
+        // Step 3: Create lowercase version as well
+        let lowercase = MC_45.LOWER(trimmed);
+        OUTPUT "Stage 3 complete: Lowercase";
+
+        // Step 4: Compute hash of uppercase version
+        let hash_upper = MC_48.HASH(uppercase);
+        OUTPUT "Stage 4 complete: Hash computed";
+
+        // Step 5: Parallel analysis and output
+        parallel {
+            // Get length of processed string
+            let length_upper = MC_43.LEN(uppercase);
+            OUTPUT length_upper;
+
+            // Get length of lowercase version
+            let length_lower = MC_43.LEN(lowercase);
+            OUTPUT length_lower;
+
+            // Concatenate original with processed
+            let combined = MC_40.CONCAT(trimmed, " [PROCESSED]");
+            OUTPUT combined;
+
+            // Output hash
+            OUTPUT hash_upper;
+        }
+
+        // Final output: return hash as primary result
+        return hash_upper;
+    }
+}

@@ -1,0 +1,95 @@
+// BRIK-64 Demo: IR emitter in PCD Core v1
+// Emits Rust-like code from simple AST structs using pattern matching.
+
+PC self_pcd_ir_emitter {
+    struct AstNode {
+        kind: string,
+        name: string,
+        value: string,
+        arg_a: string,
+        arg_b: string,
+        cond_lhs: string,
+        cond_op: string,
+        cond_rhs: string,
+        then_text: string,
+        else_text: string
+    }
+
+    fn emit_let(node) {
+        let out = "let ";
+        let out = MC_40.CONCAT(out, node.name);
+        let out = MC_40.CONCAT(out, " = ");
+        let out = MC_40.CONCAT(out, node.value);
+        let out = MC_40.CONCAT(out, ";");
+        return out;
+    }
+
+    fn emit_call(node) {
+        let out = node.name;
+        let out = MC_40.CONCAT(out, "(");
+        let out = MC_40.CONCAT(out, node.arg_a);
+        let out = MC_40.CONCAT(out, ", ");
+        let out = MC_40.CONCAT(out, node.arg_b);
+        let out = MC_40.CONCAT(out, ")");
+        return out;
+    }
+
+    fn emit_if(node) {
+        let out = "if ";
+        let out = MC_40.CONCAT(out, node.cond_lhs);
+        let out = MC_40.CONCAT(out, " ");
+        let out = MC_40.CONCAT(out, node.cond_op);
+        let out = MC_40.CONCAT(out, " ");
+        let out = MC_40.CONCAT(out, node.cond_rhs);
+        let out = MC_40.CONCAT(out, " { ");
+        let out = MC_40.CONCAT(out, node.then_text);
+        let out = MC_40.CONCAT(out, " } else { ");
+        let out = MC_40.CONCAT(out, node.else_text);
+        let out = MC_40.CONCAT(out, " }");
+        return out;
+    }
+
+    fn emit_node(node) {
+        let out = "";
+        match node.kind {
+            "Let" => {
+                let out = emit_let(node);
+            },
+            "Call" => {
+                let out = emit_call(node);
+            },
+            "If" => {
+                let out = emit_if(node);
+            },
+            _ => {
+                let out = "// unknown node";
+            }
+        }
+        return out;
+    }
+
+    let n0 = AstNode {
+        kind: "Let", name: "result", value: "compute(x, y)", arg_a: "", arg_b: "",
+        cond_lhs: "", cond_op: "", cond_rhs: "", then_text: "", else_text: ""
+    };
+    let n1 = AstNode {
+        kind: "Call", name: "process", value: "", arg_a: "result", arg_b: "ctx",
+        cond_lhs: "", cond_op: "", cond_rhs: "", then_text: "", else_text: ""
+    };
+    let n2 = AstNode {
+        kind: "If", name: "", value: "", arg_a: "", arg_b: "",
+        cond_lhs: "result", cond_op: ">", cond_rhs: "0",
+        then_text: "return result;", else_text: "return 0;"
+    };
+
+    let code = "fn lowered() {\n    ";
+    let code = MC_40.CONCAT(code, emit_node(n0));
+    let code = MC_40.CONCAT(code, "\n    let tmp = ");
+    let code = MC_40.CONCAT(code, emit_node(n1));
+    let code = MC_40.CONCAT(code, ";\n    ");
+    let code = MC_40.CONCAT(code, emit_node(n2));
+    let code = MC_40.CONCAT(code, "\n}\n");
+
+    OUTPUT code;
+    return code;
+}

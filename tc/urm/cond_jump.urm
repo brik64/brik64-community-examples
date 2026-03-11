@@ -1,0 +1,8 @@
+# URM conditional jump demo
+# Goal: execute jump branch and produce R0 = 1
+
+1: Z(0)
+2: J(0,1,4)   # R0 == R1 (both zero) so jump to label 4
+3: S(0)       # skipped
+4: S(0)       # executed => R0 = 1
+# HALT at pc = 5

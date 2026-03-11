@@ -1,0 +1,124 @@
+PC fmt_lib {
+    fn itoa(n) {
+        if (n == 0) { return "0"; }
+
+        let neg = 0;
+        let val = n;
+        if (n < 0) {
+            let neg = 1;
+            let val = (0 - n);
+        }
+
+        let result = "";
+        let digits = "0123456789";
+        loop(20) as _i {
+            if (val > 0) {
+                let rem = (val - ((val / 10) * 10));
+                let d = MC_42.SUBSTR(digits, rem, 1);
+                let result = MC_40.CONCAT(d, result);
+                let val = (val / 10);
+            }
+        }
+
+        if (neg == 1) {
+            let result = MC_40.CONCAT("-", result);
+        }
+        return result;
+    }
+
+    fn atoi(s) {
+        let n = MC_43.LEN(s);
+        if (n == 0) { return 0; }
+
+        let neg = 0;
+        let start = 0;
+        let first = MC_42.SUBSTR(s, 0, 1);
+        if (first == "-") {
+            let neg = 1;
+            let start = 1;
+        }
+        if (first == "+") {
+            let start = 1;
+        }
+
+        let acc = 0;
+        let digits = "0123456789";
+        loop(n) as i {
+            if (i >= start) {
+                let ch = MC_42.SUBSTR(s, i, 1);
+                let found = 0;
+                loop(10) as d {
+                    if (found == 0) {
+                        let dch = MC_42.SUBSTR(digits, d, 1);
+                        if (ch == dch) {
+                            let acc = ((acc * 10) + d);
+                            let found = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (neg == 1) {
+            let acc = (0 - acc);
+        }
+        return acc;
+    }
+
+    fn pad_left(s, width, ch) {
+        let out = s;
+        let n = MC_43.LEN(out);
+        if (n >= width) { return out; }
+        let pads = (width - n);
+        loop(pads) as _i {
+            let out = MC_40.CONCAT(ch, out);
+        }
+        return out;
+    }
+
+    fn pad_right(s, width, ch) {
+        let out = s;
+        let n = MC_43.LEN(out);
+        if (n >= width) { return out; }
+        let pads = (width - n);
+        loop(pads) as _i {
+            let out = MC_40.CONCAT(out, ch);
+        }
+        return out;
+    }
+
+    fn hex(n) {
+        if (n == 0) { return "0x0"; }
+
+        let hexchars = "0123456789abcdef";
+        let val = n;
+        let neg = 0;
+        if (n < 0) {
+            let neg = 1;
+            let val = (0 - n);
+        }
+
+        let result = "";
+        loop(16) as _i {
+            if (val > 0) {
+                let rem = (val - ((val / 16) * 16));
+                let d = MC_42.SUBSTR(hexchars, rem, 1);
+                let result = MC_40.CONCAT(d, result);
+                let val = (val / 16);
+            }
+        }
+
+        let result = MC_40.CONCAT("0x", result);
+        if (neg == 1) {
+            let result = MC_40.CONCAT("-", result);
+        }
+        return result;
+    }
+
+    fn bool_str(b) {
+        if (b == 0) { return "false"; }
+        return "true";
+    }
+
+    OUTPUT 0;
+}

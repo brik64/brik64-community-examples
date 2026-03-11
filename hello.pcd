@@ -1,0 +1,13 @@
+// hello.pcd
+// Simple monomer invocation example
+// Demonstrates basic OUTPUT statement
+//
+// TCE Metrics:
+// - Φ_c = 1.0 (trivial closure, no operations)
+// - ΔN = 0.0 (no logical noise)
+// - Cₘ = 1.0 (perfect coherence)
+// - ETC = 0.01 (minimal energy)
+
+PC hello_world {
+    OUTPUT "Hello, BRIK-64!";
+}

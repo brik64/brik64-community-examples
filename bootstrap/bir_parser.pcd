@@ -1,0 +1,424 @@
+PC bir_parser {
+    fn int_to_str(n) {
+        if (n == 0) { return "0"; }
+        if (n == 1) { return "1"; }
+        if (n == 2) { return "2"; }
+        if (n == 3) { return "3"; }
+        if (n == 4) { return "4"; }
+        if (n == 5) { return "5"; }
+        if (n == 6) { return "6"; }
+        if (n == 7) { return "7"; }
+        if (n == 8) { return "8"; }
+        if (n == 9) { return "9"; }
+        let d = MC_03.DIV8(n, 10);
+        let quot = d.get(0);
+        let rem  = d.get(1);
+        let prefix = int_to_str(quot);
+        let digit  = int_to_str(rem);
+        return MC_40.CONCAT(prefix, digit);
+    }
+
+    fn str_trim_left(s) {
+        let len = MC_43.LEN(s);
+        if (len == 0) { return s; }
+        let first = MC_42.SUBSTR(s, 0, 1);
+        if (first == " ") {
+            return str_trim_left(MC_42.SUBSTR(s, 1, MC_01.SUB8(len, 1)));
+        }
+        return s;
+    }
+
+    fn str_starts_with(s, prefix) {
+        let plen = MC_43.LEN(prefix);
+        let slen = MC_43.LEN(s);
+        if (plen > slen) { return 0; }
+        let candidate = MC_42.SUBSTR(s, 0, plen);
+        if (candidate == prefix) { return 1; }
+        return 0;
+    }
+
+    fn char_to_digit(ch) {
+        if (ch == "0") { return 0; }
+        if (ch == "1") { return 1; }
+        if (ch == "2") { return 2; }
+        if (ch == "3") { return 3; }
+        if (ch == "4") { return 4; }
+        if (ch == "5") { return 5; }
+        if (ch == "6") { return 6; }
+        if (ch == "7") { return 7; }
+        if (ch == "8") { return 8; }
+        if (ch == "9") { return 9; }
+        return 0;
+    }
+
+    fn parse_int(s) {
+        let s = MC_46.TRIM(s);
+        let len = MC_43.LEN(s);
+        if (len == 0) { return 0; }
+        let neg = 0;
+        let start = 0;
+        let first = MC_42.SUBSTR(s, 0, 1);
+        if (first == "-") {
+            let neg = 1;
+            let start = 1;
+        }
+        if (first == "+") {
+            let start = 1;
+        }
+        let result = 0;
+        let i = start;
+        loop(len) as _digit {
+            if (i >= len) { return result; }
+            let ch = MC_42.SUBSTR(s, i, 1);
+            let dv = char_to_digit(ch);
+            let result = MC_00.ADD8(MC_02.MUL8(result, 10), dv);
+            let i = MC_00.ADD8(i, 1);
+        }
+        if (neg == 1) {
+            return 0 - result;
+        }
+        return result;
+    }
+
+    fn find_char(s, c, start) {
+        let len = MC_43.LEN(s);
+        let i = start;
+        loop(len) as _fi {
+            if (i >= len) { return 0 - 1; }
+            let ch = MC_42.SUBSTR(s, i, 1);
+            if (ch == c) { return i; }
+            let i = MC_00.ADD8(i, 1);
+        }
+        return 0 - 1;
+    }
+
+    fn find_str(s, needle, start) {
+        let slen  = MC_43.LEN(s);
+        let nlen  = MC_43.LEN(needle);
+        if (nlen == 0) { return start; }
+        let limit = MC_01.SUB8(MC_01.SUB8(slen, nlen), 0);
+        let i = start;
+        loop(slen) as _fsi {
+            if (i > limit) { return 0 - 1; }
+            let candidate = MC_42.SUBSTR(s, i, nlen);
+            if (candidate == needle) { return i; }
+            let i = MC_00.ADD8(i, 1);
+        }
+        return 0 - 1;
+    }
+
+    fn strip_quotes(s) {
+        let len = MC_43.LEN(s);
+        if (len < 2) { return s; }
+        let first = MC_42.SUBSTR(s, 0, 1);
+        let last  = MC_42.SUBSTR(s, MC_01.SUB8(len, 1), 1);
+        if (first == "\"") {
+            if (last == "\"") {
+                return MC_42.SUBSTR(s, 1, MC_01.SUB8(len, 2));
+            }
+        }
+        return s;
+    }
+
+    fn parse_slot(s) {
+        let s = MC_46.TRIM(s);
+        if (MC_43.LEN(s) == 0) { return 0; }
+        if (MC_42.SUBSTR(s, 0, 1) == "$") {
+            return parse_int(MC_42.SUBSTR(s, 1, MC_01.SUB8(MC_43.LEN(s), 1)));
+        }
+        return parse_int(s);
+    }
+
+    fn parse_str_ref(s) {
+        let s = MC_46.TRIM(s);
+        if (MC_43.LEN(s) == 0) { return 0; }
+        if (MC_42.SUBSTR(s, 0, 1) == "@") {
+            return parse_int(MC_42.SUBSTR(s, 1, MC_01.SUB8(MC_43.LEN(s), 1)));
+        }
+        return parse_int(s);
+    }
+
+    fn parse_fn_ref(s) {
+        return parse_str_ref(s);
+    }
+
+    fn parse_callmc(words) {
+        let part = words.get(1);
+        let paren = find_char(part, "(", 0);
+        if (paren > 0) {
+            let id   = parse_int(MC_42.SUBSTR(part, 0, paren));
+            let rest = MC_42.SUBSTR(part, MC_00.ADD8(paren, 1), MC_01.SUB8(MC_43.LEN(part), MC_00.ADD8(paren, 1)));
+            let argc = parse_int(rest);
+            return [id, argc];
+        }
+        return [parse_int(part), 0];
+    }
+
+    fn parse_array_new(words, raw) {
+        let paren = find_char(raw, "(", 0);
+        if (paren > 0) {
+            let after = MC_42.SUBSTR(raw, MC_00.ADD8(paren, 1), MC_01.SUB8(MC_43.LEN(raw), MC_00.ADD8(paren, 1)));
+            return parse_int(after);
+        }
+        if (words.len() > 1) {
+            return parse_int(words.get(1));
+        }
+        return 0;
+    }
+
+    fn parse_map_new(words, raw) {
+        return parse_array_new(words, raw);
+    }
+
+    fn parse_struct_op(words) {
+        if (words.len() < 2) { return ["unknown", 0]; }
+        let part = words.get(1);
+        let slash = find_char(part, "/", 0);
+        if (slash > 0) {
+            let name  = MC_42.SUBSTR(part, 0, slash);
+            let count = parse_int(MC_42.SUBSTR(part, MC_00.ADD8(slash, 1), MC_01.SUB8(MC_43.LEN(part), MC_00.ADD8(slash, 1))));
+            return [name, count];
+        }
+        return [part, 0];
+    }
+
+    fn parse_field_ref(words) {
+        if (words.len() < 2) { return ["unknown", "unknown"]; }
+        let part = words.get(1);
+        let dot = find_char(part, ".", 0);
+        if (dot > 0) {
+            let struct_name = MC_42.SUBSTR(part, 0, dot);
+            let field_name  = MC_42.SUBSTR(part, MC_00.ADD8(dot, 1), MC_01.SUB8(MC_43.LEN(part), MC_00.ADD8(dot, 1)));
+            return [struct_name, field_name];
+        }
+        return [part, "unknown"];
+    }
+
+    fn parse_enum_op(words) {
+        if (words.len() < 2) { return ["unknown", "unknown"]; }
+        let part = words.get(1);
+        let sep = find_str(part, "::", 0);
+        if (sep >= 0) {
+            let enum_name    = MC_42.SUBSTR(part, 0, sep);
+            let variant_name = MC_42.SUBSTR(part, MC_00.ADD8(sep, 2), MC_01.SUB8(MC_43.LEN(part), MC_00.ADD8(sep, 2)));
+            return [enum_name, variant_name];
+        }
+        return [part, "unknown"];
+    }
+
+    fn parse_closure_op(words) {
+        if (words.len() < 2) { return 0; }
+        return parse_fn_ref(words.get(1));
+    }
+
+    fn decode_opcode(op, words, raw) {
+        if (op == "NOP")           { return [0,   "none",    0]; }
+        if (op == "HALT")          { return [1,   "none",    0]; }
+        if (op == "PUSH_UNIT")     { return [16,  "none",    0]; }
+        if (op == "PUSH_BOOL")     { return [17,  "byte",    parse_int(words.get(1))]; }
+        if (op == "PUSH_U8")       { return [18,  "byte",    parse_int(words.get(1))]; }
+        if (op == "PUSH_I64")      { return [19,  "int64",   parse_int(words.get(1))]; }
+        if (op == "PUSH_U64")      { return [20,  "uint64",  parse_int(words.get(1))]; }
+        if (op == "PUSH_STR")      { return [21,  "index",   parse_str_ref(words.get(1))]; }
+        if (op == "LOAD")          { return [32,  "index",   parse_slot(words.get(1))]; }
+        if (op == "STORE")         { return [33,  "index",   parse_slot(words.get(1))]; }
+        if (op == "CALL_MC")       { return [48,  "monomer", parse_callmc(words)]; }
+        if (op == "JUMP")          { return [64,  "offset",  parse_int(words.get(1))]; }
+        if (op == "JUMP_IF")       { return [65,  "offset",  parse_int(words.get(1))]; }
+        if (op == "JUMP_IF_NOT")   { return [66,  "offset",  parse_int(words.get(1))]; }
+        if (op == "CMP_EQ")        { return [80,  "none",    0]; }
+        if (op == "CMP_NE")        { return [81,  "none",    0]; }
+        if (op == "CMP_LT")        { return [82,  "none",    0]; }
+        if (op == "CMP_LE")        { return [83,  "none",    0]; }
+        if (op == "CMP_GT")        { return [84,  "none",    0]; }
+        if (op == "CMP_GE")        { return [85,  "none",    0]; }
+        if (op == "DUP")           { return [96,  "none",    0]; }
+        if (op == "DROP")          { return [97,  "none",    0]; }
+        if (op == "SWAP")          { return [98,  "none",    0]; }
+        if (op == "CALL")          { return [112, "index",   parse_fn_ref(words.get(1))]; }
+        if (op == "RET")           { return [113, "none",    0]; }
+        if (op == "STRUCT_NEW")    { return [128, "struct",  parse_struct_op(words)]; }
+        if (op == "FIELD_GET")     { return [129, "field",   parse_field_ref(words)]; }
+        if (op == "FIELD_SET")     { return [130, "field",   parse_field_ref(words)]; }
+        if (op == "ENUM_TAG")      { return [131, "enum",    parse_enum_op(words)]; }
+        if (op == "MATCH_EQ")      { return [144, "offset",  parse_int(words.get(1))]; }
+        if (op == "ENUM_GET_TAG")  { return [145, "none",    0]; }
+        if (op == "ENUM_GET_DATA") { return [146, "none",    0]; }
+        if (op == "MAKE_CLOSURE")  { return [160, "index",   parse_closure_op(words)]; }
+        if (op == "CALL_CLOSURE")  { return [161, "byte",    parse_int(words.get(1))]; }
+        if (op == "ARRAY_NEW")     { return [176, "byte",    parse_array_new(words, raw)]; }
+        if (op == "ARRAY_GET")     { return [177, "none",    0]; }
+        if (op == "ARRAY_SET")     { return [178, "none",    0]; }
+        if (op == "COLLECTION_LEN"){ return [179, "none",    0]; }
+        if (op == "MAP_NEW")       { return [180, "byte",    parse_map_new(words, raw)]; }
+        if (op == "MAP_GET")       { return [181, "none",    0]; }
+        if (op == "MAP_SET")       { return [182, "none",    0]; }
+        if (op == "METHOD_DISPATCH"){ return [183, "index",  parse_fn_ref(words.get(1))]; }
+        if (op == "WRAP_OK")       { return [192, "none",    0]; }
+        if (op == "WRAP_ERR")      { return [193, "none",    0]; }
+        if (op == "PUSH_NONE")     { return [194, "none",    0]; }
+        if (op == "TRY_UNWRAP")    { return [195, "none",    0]; }
+        if (op == "TRY_BEGIN")     { return [196, "offset",  parse_int(words.get(1))]; }
+        if (op == "TRY_END")       { return [197, "offset",  parse_int(words.get(1))]; }
+        if (op == "ADD_I64")       { return [184, "none",    0]; }
+        if (op == "SUB_I64")       { return [185, "none",    0]; }
+        if (op == "MUL_I64")       { return [186, "none",    0]; }
+        return [0, "none", 0];
+    }
+
+    fn parse_one_instr(rest) {
+        let words = MC_41.SPLIT(rest, " ");
+        let op_str = words.get(0);
+        return decode_opcode(op_str, words, rest);
+    }
+
+    fn parse_header(lines) {
+        let module = #{};
+        let module = module.set("name",         "unknown");
+        let module = module.set("version",      1);
+        let module = module.set("inputs",       []);
+        let module = module.set("output_var",   "none");
+        let module = module.set("var_names",    []);
+        let module = module.set("string_table", []);
+        let module = module.set("functions",    #{});
+        let module = module.set("param_counts", #{});
+        let module = module.set("instructions", []);
+        let i = 0;
+        let nlines = lines.len();
+        loop(nlines) as _li {
+            if (i >= nlines) { return module; }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            if (str_starts_with(line, "MODULE ")) {
+                let name = MC_42.SUBSTR(line, 7, MC_01.SUB8(MC_43.LEN(line), 7));
+                let module = module.set("name", name);
+            }
+            if (str_starts_with(line, "VERSION ")) {
+                let v = MC_42.SUBSTR(line, 8, MC_01.SUB8(MC_43.LEN(line), 8));
+                let module = module.set("version", parse_int(v));
+            }
+            if (str_starts_with(line, "INPUTS ")) {
+                let inp_str = MC_42.SUBSTR(line, 7, MC_01.SUB8(MC_43.LEN(line), 7));
+                if (MC_43.LEN(inp_str) > 0) {
+                    let inputs = MC_41.SPLIT(inp_str, ",");
+                    let module = module.set("inputs", inputs);
+                }
+            }
+            if (str_starts_with(line, "OUTPUT ")) {
+                let out_str = MC_42.SUBSTR(line, 7, MC_01.SUB8(MC_43.LEN(line), 7));
+                let module = module.set("output_var", out_str);
+            }
+            if (str_starts_with(line, "VARS ")) {
+                let vars_str = MC_42.SUBSTR(line, 5, MC_01.SUB8(MC_43.LEN(line), 5));
+                if (MC_43.LEN(vars_str) > 0) {
+                    let var_names = MC_41.SPLIT(vars_str, ",");
+                    let module = module.set("var_names", var_names);
+                }
+            }
+        }
+        return module;
+    }
+
+    fn parse_string_table(lines, module) {
+        let nlines = lines.len();
+        let in_strings = 0;
+        let strings = [];
+        let i = 0;
+        loop(nlines) as _li {
+            if (i >= nlines) { return module.set("string_table", strings); }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            if (str_starts_with(line, "STRINGS ")) {
+                let in_strings = 1;
+            }
+            if (in_strings == 1) {
+                if (str_starts_with(line, "S")) {
+                    let colon_pos = find_char(line, ":", 0);
+                    if (colon_pos > 0) {
+                        let content_start = MC_00.ADD8(colon_pos, 2);
+                        let content_len = MC_01.SUB8(MC_43.LEN(line), content_start);
+                        if (content_len > 0) {
+                            let raw = MC_42.SUBSTR(line, content_start, content_len);
+                            let s = strip_quotes(raw);
+                            let strings = strings.push(s);
+                        }
+                    }
+                }
+                if (str_starts_with(line, "FUNCTIONS")) { let in_strings = 0; }
+                if (str_starts_with(line, "INSTRUCTIONS")) { let in_strings = 0; }
+            }
+        }
+        return module.set("string_table", strings);
+    }
+
+    fn parse_vars(lines, module) {
+        return module;
+    }
+
+    fn parse_functions(lines, module) {
+        let nlines = lines.len();
+        let in_funcs = 0;
+        let functions = #{};
+        let param_counts = #{};
+        let i = 0;
+        loop(nlines) as _li {
+            if (i >= nlines) {
+                return module.set("functions", functions).set("param_counts", param_counts);
+            }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            if (str_starts_with(line, "FUNCTIONS ")) { let in_funcs = 1; }
+            if (in_funcs == 1) {
+                if (str_starts_with(line, "F ")) {
+                    let rest = MC_42.SUBSTR(line, 2, MC_01.SUB8(MC_43.LEN(line), 2));
+                    let colon = find_char(rest, ":", 0);
+                    if (colon > 0) {
+                        let name       = MC_42.SUBSTR(rest, 0, colon);
+                        let offset_str = MC_46.TRIM(MC_42.SUBSTR(rest, MC_00.ADD8(colon, 1), MC_01.SUB8(MC_43.LEN(rest), MC_00.ADD8(colon, 1))));
+                        let offset     = parse_int(offset_str);
+                        let functions  = functions.set(name, offset);
+                    }
+                }
+                if (str_starts_with(line, "INSTRUCTIONS")) { let in_funcs = 0; }
+            }
+        }
+        return module.set("functions", functions).set("param_counts", param_counts);
+    }
+
+    fn parse_instructions(lines, module) {
+        let nlines = lines.len();
+        let in_instrs = 0;
+        let instrs = [];
+        let i = 0;
+        loop(nlines) as _li {
+            if (i >= nlines) { return module.set("instructions", instrs); }
+            let line = MC_46.TRIM(lines.get(i));
+            let i = MC_00.ADD8(i, 1);
+            if (str_starts_with(line, "INSTRUCTIONS ")) { let in_instrs = 1; }
+            if (in_instrs == 1) {
+                let colon = find_char(line, ":", 0);
+                if (colon > 0) {
+                    let rest = MC_46.TRIM(MC_42.SUBSTR(line, MC_00.ADD8(colon, 1), MC_01.SUB8(MC_43.LEN(line), MC_00.ADD8(colon, 1))));
+                    if (MC_43.LEN(rest) > 0) {
+                        let instr = parse_one_instr(rest);
+                        let instrs = instrs.push(instr);
+                    }
+                }
+            }
+        }
+        return module.set("instructions", instrs);
+    }
+
+    fn parse_bir_module(text) {
+        let lines = MC_41.SPLIT(text, "\n");
+        let module = parse_header(lines);
+        let module = parse_string_table(lines, module);
+        let module = parse_vars(lines, module);
+        let module = parse_functions(lines, module);
+        let module = parse_instructions(lines, module);
+        return module;
+    }
+
+    let module = parse_bir_module(text);
+    OUTPUT module;
+}

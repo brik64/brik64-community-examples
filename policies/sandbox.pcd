@@ -1,0 +1,23 @@
+// Policy: Sandbox — combines no_network + no_filesystem + memory_bound
+// Returns 0 (ALLOW) or 1 (BLOCK)
+
+PC sandbox {
+    import "ast_inspect.pcd";
+
+    fn check(mc_ids) {
+        // Block network (MC_56)
+        if (contains_monomer(mc_ids, 56) == 1) { return 1; }
+        // Block filesystem read/write (MC_57, MC_58)
+        if (contains_monomer(mc_ids, 57) == 1) { return 1; }
+        if (contains_monomer(mc_ids, 58) == 1) { return 1; }
+        // Block excessive memory ops
+        let mem_ops = count_in_range(mc_ids, 16, 23);
+        if (mem_ops > 100) { return 1; }
+        // Block excessive system ops
+        let sys_ops = count_system_ops(mc_ids);
+        if (sys_ops > 50) { return 1; }
+        return 0;
+    }
+
+    OUTPUT 0;
+}

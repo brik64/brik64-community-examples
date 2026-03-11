@@ -1,0 +1,146 @@
+// BRIK-64 Demo: Self-hosted PCD lexer in PCD Core v1
+// Character-by-character tokenization using string monomers.
+
+PC self_pcd_lexer {
+    enum Token {
+        Keyword,
+        Identifier,
+        Number,
+        Operator,
+        Punctuation,
+        StringLit,
+        EOF
+    }
+
+    fn classify_word(word) {
+        let n = MC_43.LEN(word);
+        let kind = "Identifier";
+
+        let is_pc = MC_47.MATCH(word, "PC");
+        let is_let = MC_47.MATCH(word, "let");
+        let is_if = MC_47.MATCH(word, "if");
+        let is_else = MC_47.MATCH(word, "else");
+        let is_fn = MC_47.MATCH(word, "fn");
+        let is_loop = MC_47.MATCH(word, "loop");
+        let is_match = MC_47.MATCH(word, "match");
+
+        if (is_pc && n == 2) { let kind = "Keyword"; }
+        if (is_let && n == 3) { let kind = "Keyword"; }
+        if (is_if && n == 2) { let kind = "Keyword"; }
+        if (is_else && n == 4) { let kind = "Keyword"; }
+        if (is_fn && n == 2) { let kind = "Keyword"; }
+        if (is_loop && n == 4) { let kind = "Keyword"; }
+        if (is_match && n == 5) { let kind = "Keyword"; }
+
+        let first = MC_42.SUBSTR(word, 0, 1);
+        let first_is_digit = MC_47.MATCH("0123456789", first);
+        if (first_is_digit) { let kind = "Number"; }
+
+        let token = MC_40.CONCAT(kind, ":");
+        let token = MC_40.CONCAT(token, word);
+        return token;
+    }
+
+    fn tokenize(source) {
+        let _k0 = Token::Keyword;
+        let _k1 = Token::Identifier;
+        let _k2 = Token::Number;
+        let _k3 = Token::Operator;
+        let _k4 = Token::Punctuation;
+        let _k5 = Token::StringLit;
+        let _k6 = Token::EOF;
+
+        let tokens = [];
+        let n = MC_43.LEN(source);
+        let i = 0;
+        let current = "";
+        let in_string = false;
+
+        loop(512) {
+            if (i >= n) {
+                let current_len = MC_43.LEN(current);
+                if (current_len > 0) {
+                    let tok = classify_word(current);
+                    let _p = tokens.push(tok);
+                }
+                let _eof = tokens.push("EOF:<eof>");
+                return tokens;
+            }
+
+            let ch = MC_42.SUBSTR(source, i, 1);
+            let i = MC_00.ADD8(i, 1);
+
+            if (in_string) {
+                let current = MC_40.CONCAT(current, ch);
+                let is_quote = MC_47.MATCH(ch, "\"");
+                if (is_quote) {
+                    let token = MC_40.CONCAT("StringLit:", current);
+                    let _p = tokens.push(token);
+                    let current = "";
+                    let in_string = false;
+                }
+            } else {
+                let is_space = MC_47.MATCH(ch, " ");
+                let is_tab = MC_47.MATCH(ch, "\t");
+                let is_nl = MC_47.MATCH(ch, "\n");
+                let is_quote = MC_47.MATCH(ch, "\"");
+
+                let is_punct = MC_47.MATCH("(){}[],:;.", ch);
+                let is_op = MC_47.MATCH("+-*/=!<>|&", ch);
+
+                if (is_space || is_tab || is_nl) {
+                    let current_len = MC_43.LEN(current);
+                    if (current_len > 0) {
+                        let tok = classify_word(current);
+                        let _p = tokens.push(tok);
+                        let current = "";
+                    }
+                } else {
+                    if (is_quote) {
+                        let current_len = MC_43.LEN(current);
+                        if (current_len > 0) {
+                            let tok = classify_word(current);
+                            let _p = tokens.push(tok);
+                            let current = "";
+                        }
+                        let current = MC_40.CONCAT(current, ch);
+                        let in_string = true;
+                    } else {
+                        if (is_punct) {
+                            let current_len = MC_43.LEN(current);
+                            if (current_len > 0) {
+                                let tok = classify_word(current);
+                                let _p = tokens.push(tok);
+                                let current = "";
+                            }
+                            let token = MC_40.CONCAT("Punctuation:", ch);
+                            let _p = tokens.push(token);
+                        } else {
+                            if (is_op) {
+                                let current_len = MC_43.LEN(current);
+                                if (current_len > 0) {
+                                    let tok = classify_word(current);
+                                    let _p = tokens.push(tok);
+                                    let current = "";
+                                }
+                                let token = MC_40.CONCAT("Operator:", ch);
+                                let _p = tokens.push(token);
+                            } else {
+                                let current = MC_40.CONCAT(current, ch);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let _eof = tokens.push("EOF:<bounded>");
+        return tokens;
+    }
+
+    let source = "PC demo { let x = 42; if (x > 9) { OUTPUT \"hi\"; } else { fn run() { loop(2) { match x { 1 => { return x; }, _ => { return x; } } } } } }";
+    let tokens = tokenize(source);
+
+    OUTPUT tokens;
+    return tokens;
+}
